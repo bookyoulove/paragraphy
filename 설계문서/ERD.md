@@ -30,7 +30,7 @@ erDiagram
         uuid rubric_id PK
         uuid problem_id FK
         string criteria
-        text description
+        text description "nullable"
     }
 
     ANALYSIS_SESSIONS {
