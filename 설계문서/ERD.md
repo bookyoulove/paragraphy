@@ -29,7 +29,8 @@ erDiagram
     RUBRICS {
         uuid rubric_id PK
         uuid problem_id FK
-        text content
+        string criteria
+        text description
     }
 
     ANALYSIS_SESSIONS {
