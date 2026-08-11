@@ -2,7 +2,7 @@
 erDiagram
     USERS ||--o{ ANALYSIS_SESSIONS : has
     USERS |o..o{ PROBLEMS : made
-    PROBLEMS |o--o{ RUBRICS : has
+    PROBLEMS ||--|{ RUBRICS : has
     ANALYSIS_SESSIONS ||--o{ USER_ANSWERS : has
     USER_ANSWERS ||--o| ANALYSIS_RESULTS : graded
     PROBLEMS |o..o{ ANALYSIS_SESSIONS : referenced
