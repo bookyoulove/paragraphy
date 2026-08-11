@@ -23,6 +23,7 @@ erDiagram
         string university "nullable"
         int year "nullable"
         text content
+        text model_answer "nullable"
     }
 
     RUBRICS {
