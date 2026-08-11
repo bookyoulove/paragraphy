@@ -42,6 +42,7 @@ erDiagram
         uuid answer_id PK
         uuid session_id FK
         string user_answer
+        string status
     }
 
     ANALYSIS_RESULTS {
