@@ -5,7 +5,7 @@ erDiagram
     PROBLEMS ||--|{ RUBRICS : has
     ANALYSIS_SESSIONS ||--o{ USER_ANSWERS : has
     USER_ANSWERS ||--o| ANALYSIS_RESULTS : graded
-    PROBLEMS |o..o{ ANALYSIS_SESSIONS : referenced
+    PROBLEMS ||..o{ ANALYSIS_SESSIONS : referenced
     ANALYSIS_RESULTS ||--o| CHAT_SESSIONS : has
     CHAT_SESSIONS ||--o{ CHAT_MESSAGES : has
 
@@ -43,16 +43,16 @@ erDiagram
     USER_ANSWERS {
         uuid answer_id PK
         uuid session_id FK
-        string user_answer
+        text user_answer
         string status
     }
 
     ANALYSIS_RESULTS {
         uuid result_id PK
         uuid answer_id FK
-        json scores
-        json corrections
-        json agent_results
+        json grammar_result
+        json criteria_scores
+        text overall_comment
         datetime created_at
     }
 
