@@ -54,6 +54,12 @@ class AnswerOut(BaseModel):
         orm_mode = True
 
 
+class SessionCreate(BaseModel):
+    user_id: int
+    problem_id: int
+    problem_source: str
+
+
 class GradeRequest(BaseModel):
     session_id: int
     source: Optional[str] = "api"
@@ -89,7 +95,7 @@ class ChatMessageOut(BaseModel):
     session_id: int
     role: str
     text: str
-    metadata: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, Any]] = None
     created_at: Optional[str] = None
 
     class Config:
