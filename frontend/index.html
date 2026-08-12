@@ -18,38 +18,44 @@
 
       <main class="main-layout">
         <section class="left-panel">
+          <div class="problem-picker">
+            <div class="picker-header">
+              <div>
+                <div class="label-title">문제 선택</div>
+                <div class="label-sub">대학 / 국립국어원 문제를 선택하여 채점 흐름을 시작하세요.</div>
+              </div>
+              <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
+            </div>
+            <select id="problemSelector" class="select-input"></select>
+            <div id="problemMeta" class="problem-meta"></div>
+            <button id="btnStartSession" class="primary-btn full-width">세션 시작</button>
+            <div id="sessionStatus" class="session-status">세션이 아직 시작되지 않았습니다.</div>
+          </div>
+
           <div class="problem-box">
             <div class="problem-header">
-              <div class="problem-title">논술 문항 - 인문계열 (가)(나)(다) 제시문</div>
-              <button class="ghost-btn">접기</button>
+              <div id="problemTitle" class="problem-title">문제를 선택해 주세요</div>
             </div>
 
-            <div class="problem-text">
-              <p>(가) 온라인 공인의 익명성은 신분 노출에 대한 두려움 없이 소속감과 사회적 약자가 무시할 수 없는 동기와 불안에 따른 사회적 분위기에 대한 공감이 크다.</p>
-              <p>(나) 그러나 신원 드러나지 않는다는 사실은 발언에 대한 책임감을 약화시킨다. 익명성에 대해 보편적으로 반대하는 사람은 익명성과 공론장 간의 힘을 인식한다.</p>
-              <p>(다) 한 조사에 따르면 익명 커뮤니티 이용자 중 상당수가 실명 공론장에서는 혼자하기 어렵다. 동기에 따라 수용 가능한 출처에 묘사했다.</p>
-            </div>
+            <div id="problemContent" class="problem-text muted">선택한 문제의 본문과 지문이 이곳에 표시됩니다.</div>
 
             <div class="question-box">
-              <div class="question-label">문제 제시문</div>
-              <div class="question-body">
-                문제: 제시문 (가)와 (나)에 나타난 익명성에 대한 입장을 비교하고, 제시문 (다)를 근거로 온라인 익명성이 공동체 의식에 미치는 영향에 대한 자신의 견해를 논술하시오. (1,000자 내외)
-              </div>
+              <div class="question-label">출제 문항</div>
+              <div id="problemRubric" class="question-body">문제를 선택하면 해당 문항과 채점 기준이 표시됩니다.</div>
             </div>
           </div>
 
           <div class="answer-box">
             <div class="answer-header">
               <div class="answer-title">답안 작성</div>
-              <div class="word-counter">463 / 1,000자</div>
+              <div id="wordCounter" class="word-counter">0 / 1,000자</div>
             </div>
 
-            <textarea class="answer-input" readonly>
-온라인 공인의 익명성은 양날의 검이다. 제시문 (가)는 익명성이 사회적 약자와 소수자의 목소리를 드러내는 데 기여할 수 있다는 점을 강조한다. 반면 제시문 (나)는 익명성 때문에 표현의 책임감이 약화된다는 부정적 측면을 강조한다. 제시문 (다)는 익명 커뮤니티에서 실명 공론장으로 이동하는 이유를 설명해 준다. 익명성이 공동체 의식의 확장에 도움을 줄 수도 있지만, 온라인 상에서 표현의 자유를 지나치게 확대하는 배경이 될 수 있다는 점도 유의해야 한다.
-            </textarea>
+            <textarea id="answerText" class="answer-input" placeholder="여기에 답안을 작성하세요."></textarea>
 
             <div class="answer-actions">
-              <button class="primary-btn">채점 요청</button>
+              <button id="btnSubmitAnswer" class="primary-btn">답안 저장</button>
+              <button id="btnGrade" class="primary-btn">채점 요청</button>
             </div>
           </div>
         </section>

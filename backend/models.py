@@ -76,7 +76,7 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("analysis_sessions.id"), nullable=False)
     role = Column(String(32), nullable=False)
     text = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    meta = Column("metadata", JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.datetime("now"))
 
     session = relationship("AnalysisSession", back_populates="chats")
