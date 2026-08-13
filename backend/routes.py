@@ -233,6 +233,7 @@ async def grade_session(request: GradeRequest, db: Session = Depends(get_db)):
     result = AnalysisResult(
         session_id=session.id,
         source=request.source,
+        answer_text=answer.text,
         scores=analysis["scores"],
         grammar_errors=analysis["grammar_errors"],
         suggestions=analysis["suggestions"],
@@ -282,6 +283,7 @@ def list_session_results(session_id: int, db: Session = Depends(get_db)):
                 "commentary": result.commentary,
                 "suggestions": result.suggestions or [],
                 "grammar_errors": result.grammar_errors or [],
+                "answer_text": result.answer_text,
             }
         )
     return summaries

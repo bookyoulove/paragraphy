@@ -699,6 +699,29 @@ button, input, textarea {
   font-weight: 700;
 }
 
+.answer-preview-banner[hidden] { display: none; }
+
+.answer-preview-banner {
+  flex-shrink: 0;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--warning);
+  border: 1px solid #e3c98f;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #6b4c14;
+}
+
+.answer-input[readonly] {
+  background: #f3f3f0;
+  cursor: default;
+}
+
 .highlight-wrap {
   position: relative;
   margin-top: 12px;
@@ -1027,6 +1050,22 @@ button, input, textarea {
   font-weight: 400;
   color: var(--muted);
 }
+
+.compare-attempt-btn {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--brand);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.compare-attempt-btn:hover { color: var(--navy); }
 
 .compare-table tr.compare-total td {
   font-weight: 700;

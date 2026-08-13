@@ -114,6 +114,7 @@ class ResultSummaryOut(BaseModel):
     commentary: Optional[str] = None
     suggestions: Optional[List[str]] = []
     grammar_errors: Optional[List[Dict[str, Any]]] = []
+    answer_text: Optional[str] = None
 
 
 class SessionHistoryOut(BaseModel):

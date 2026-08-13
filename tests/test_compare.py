@@ -52,3 +52,6 @@ def test_results_track_multiple_grading_attempts(client, fake_claude):
     assert results[1]["grammar_error_count"] == 0
     # 회차가 오래된 순으로 정렬되어 있어야 한다 (비교표는 최신 회차가 마지막 열)
     assert results[0]["created_at"] <= results[1]["created_at"]
+    # 각 회차 채점 시점의 답안 원문이 스냅샷으로 남아있어야 한다 (비교표에서 회차 클릭 시 복원용)
+    assert results[0]["answer_text"] == "초안 1"
+    assert results[1]["answer_text"] == "개선된 답안"
