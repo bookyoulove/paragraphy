@@ -44,7 +44,7 @@ button, input, textarea {
 .topbar {
   height: 62px;
   flex-shrink: 0;
-  background: #0f1115;
+  background: radial-gradient(circle at 50% 0%, #2a3f73 0%, #16203f 55%, #0f1526 100%);
   color: white;
   display: flex;
   align-items: center;
@@ -181,13 +181,30 @@ button, input, textarea {
 .content-view[hidden] { display: none; }
 .content-view { display: block; }
 
-#view-grade[hidden] { display: none; }
+#view-grade[hidden],
+#view-pick-existing[hidden],
+#view-pick-custom[hidden] { display: none; }
 
-#view-grade {
+#view-grade,
+#view-pick-existing,
+#view-pick-custom {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+#view-pick-existing .picker-view,
+#view-pick-custom .picker-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+#view-pick-custom .custom-textarea {
+  flex: 1;
+  min-height: 120px;
 }
 
 .empty-state[hidden] { display: none; }
@@ -346,7 +363,8 @@ button, input, textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 340px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 2px;
 }
