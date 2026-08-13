@@ -62,8 +62,8 @@ button, input, textarea {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(180deg, #dfe8ff, #b7c8ff);
-  color: #1d2d5a;
+  background: linear-gradient(150deg, #2c4180 0%, #16203f 75%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,12 +72,16 @@ button, input, textarea {
   font-weight: 400;
   font-size: 22px;
   line-height: 1;
-  -webkit-text-stroke: 0.6px #1d2d5a;
 }
 
 .brand-badge span {
   display: inline-block;
   transform: translate(2px, -1px);
+  background: linear-gradient(180deg, #ffffff 0%, #dbe3f7 55%, #a9b9e2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,0.6)) drop-shadow(0 1.5px 2px rgba(0,0,0,0.5));
 }
 
 .brand-text {
@@ -136,8 +140,7 @@ button, input, textarea {
   height: 72px;
   margin: 0 auto 28px;
   border-radius: 20px;
-  background: linear-gradient(180deg, #dfe8ff, #b7c8ff);
-  color: #1d2d5a;
+  background: linear-gradient(150deg, #2c4180 0%, #16203f 75%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -146,13 +149,17 @@ button, input, textarea {
   font-weight: 400;
   font-size: 46px;
   line-height: 1;
-  -webkit-text-stroke: 1px #1d2d5a;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  box-shadow: inset 0 2px 2px rgba(255,255,255,0.15), 0 12px 30px rgba(0,0,0,0.35);
 }
 
 .landing-badge span {
   display: inline-block;
   transform: translate(0, -1px);
+  background: linear-gradient(180deg, #ffffff 0%, #dbe3f7 55%, #a9b9e2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(255,255,255,0.6)) drop-shadow(0 3px 4px rgba(0,0,0,0.5));
 }
 
 .landing-title {
