@@ -62,6 +62,7 @@ class AnalysisResult(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("analysis_sessions.id"), nullable=False)
     source = Column(String(64), nullable=False, default="claude")
+    answer_text = Column(Text, nullable=True)
     scores = Column(JSON, nullable=True)
     grammar_errors = Column(JSON, nullable=True)
     suggestions = Column(JSON, nullable=True)

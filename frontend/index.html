@@ -55,9 +55,6 @@
           <ul class="sidebar-menu">
             <li><button type="button" class="sidebar-item" data-view="pick-existing">문제 선택</button></li>
             <li><button type="button" class="sidebar-item" data-view="pick-custom">문제 직접 입력</button></li>
-            <li><button type="button" class="sidebar-item" data-view="grade">채점</button></li>
-            <li><button type="button" class="sidebar-item" data-view="proof">첨삭</button></li>
-            <li><button type="button" class="sidebar-item" data-view="chat">챗봇</button></li>
             <li class="sidebar-sep"></li>
             <li><button type="button" class="sidebar-item" data-view="history">답안 기록</button></li>
             <li><button type="button" class="sidebar-item" data-view="compare">채점 비교</button></li>
@@ -111,7 +108,7 @@
             </div>
           </section>
 
-          <!-- 채점 / 첨삭 / 챗봇 (같은 작업 세션의 세 가지 관점) -->
+          <!-- 작업 화면: 문제/답안 작성 → 채점 결과/첨삭/Tutor Chat (오른쪽 패널 탭으로 전환) -->
           <section id="view-grade" class="content-view" hidden>
             <div id="workEmptyState" class="empty-state" hidden>
               <div class="label-title">먼저 문제를 선택해주세요</div>
@@ -182,6 +179,11 @@
         <div id="wordCounter" class="word-counter">0자</div>
       </div>
 
+      <div id="answerPreviewBanner" class="answer-preview-banner" hidden>
+        <span id="answerPreviewText"></span>
+        <button type="button" id="btnExitPreview" class="ghost-btn">현재 답안으로 돌아가기</button>
+      </div>
+
       <div class="highlight-wrap">
         <div id="answerHighlight" class="answer-highlight" aria-hidden="true"></div>
         <textarea id="answerText" class="answer-input" placeholder="여기에 답안을 작성하세요." spellcheck="false"></textarea>
@@ -195,6 +197,12 @@
     </div>
 
     <aside id="resultPanel" class="right-panel" hidden>
+      <div class="tabs">
+        <button class="tab active" data-tab="grade">채점 결과</button>
+        <button class="tab" data-tab="proof">첨삭 목록</button>
+        <button class="tab" data-tab="chat">Tutor Chat</button>
+      </div>
+
       <div class="tab-panels">
         <!-- 채점 결과 -->
         <div class="tab-panel active" data-panel="grade">

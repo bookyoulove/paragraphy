@@ -23,6 +23,8 @@ let currentUser = null;
 let hasGradedInSession = false;
 let isGrading = false;
 let currentView = 'pick-existing';
+let previewingAttempt = null;
+let savedDraftBeforePreview = null;
 
 const problemList = document.getElementById('problemList');
 const problemTitle = document.getElementById('problemTitle');
@@ -49,14 +51,12 @@ const workColumns = document.getElementById('workColumns');
 const workEmptyState = document.getElementById('workEmptyState');
 const currentProblemLabel = document.getElementById('currentProblemLabel');
 
-// 사이드바 메뉴("문제 선택"/"채점"/"첨삭"/"챗봇"/"답안 기록"/"채점 비교")가 공유하는 콘텐츠 영역.
-// 채점/첨삭/챗봇 세 메뉴는 같은 작업 세션(#view-grade)을 서로 다른 탭으로 보여준다.
+// 사이드바 메뉴("문제 선택"/"문제 직접 입력"/"답안 기록"/"채점 비교")가 공유하는 콘텐츠 영역.
+// "work"는 사이드바 버튼이 따로 없는 작업 화면(문제/답안 → 채점 결과/첨삭/Tutor Chat 탭)이다.
 const CONTENT_VIEWS = {
   'pick-existing': document.getElementById('view-pick-existing'),
   'pick-custom': document.getElementById('view-pick-custom'),
-  grade: document.getElementById('view-grade'),
-  proof: document.getElementById('view-grade'),
-  chat: document.getElementById('view-grade'),
+  work: document.getElementById('view-grade'),
   history: document.getElementById('view-history'),
   compare: document.getElementById('view-compare'),
 };
@@ -163,8 +163,8 @@ function switchView(view) {
   });
   CONTENT_VIEWS[view].hidden = false;
 
-  if (view === 'grade' || view === 'proof' || view === 'chat') {
-    updateWorkLayout(view);
+  if (view === 'work') {
+    updateWorkLayout();
   } else if (view === 'history') {
     loadHistoryView();
   } else if (view === 'compare') {
@@ -173,8 +173,9 @@ function switchView(view) {
   updateInfoBar();
 }
 
-// 채점/첨삭/챗봇 메뉴가 공유하는 작업 영역(문제·답안·채점결과)을 view에 맞게 재구성한다.
-function updateWorkLayout(view) {
+// 작업 화면(문제/답안 작성 ↔ 답안/채점결과)을 현재 상태에 맞게 재구성한다.
+// 채점 결과/첨삭 목록/Tutor Chat 세 탭은 resultPanel 안의 pill-tab으로 전환한다.
+function updateWorkLayout() {
   if (!selectedProblem) {
     workEmptyState.hidden = false;
     workColumns.hidden = true;
@@ -184,24 +185,30 @@ function updateWorkLayout(view) {
   workColumns.hidden = false;
 
   answerBox.hidden = false;
-  if (view === 'grade' && !hasGradedInSession && !isGrading) {
+  if (!hasGradedInSession && !isGrading) {
     // 채점 전: 문제/지문이 왼쪽, 답안 작성이 오른쪽
     problemBox.hidden = false;
     resultPanel.hidden = true;
     leftColumn.appendChild(problemBox);
     rightColumn.appendChild(answerBox);
   } else {
-    // 채점/첨삭/챗봇: 답안이 왼쪽, 결과 패널이 오른쪽 (탭만 view에 맞게 전환)
+    // 채점 후(또는 채점 중): 답안이 왼쪽, 결과 패널이 오른쪽
     problemBox.hidden = true;
     resultPanel.hidden = false;
     leftColumn.appendChild(answerBox);
     rightColumn.appendChild(resultPanel);
-    setActiveResultTab(view === 'grade' ? 'grade' : view);
   }
 }
 
 function setActiveResultTab(tab) {
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+}
+
+function bindTabs() {
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => setActiveResultTab(tab.dataset.tab));
+  });
 }
 
 function updateInfoBar() {
@@ -275,6 +282,7 @@ function selectProblem(problem) {
   const isDifferentProblem = !selectedProblem || selectedProblem.id !== problem.id;
   selectedProblem = problem;
   currentSession = null;
+  resetAnswerPreviewState();
   if (isDifferentProblem) {
     answerText.value = '';
     updateWordCount();
@@ -282,7 +290,7 @@ function selectProblem(problem) {
   renderProblemList();
   renderProblemDetails();
   resetResultPanels();
-  switchView('grade');
+  switchView('work');
 }
 
 function renderProblemDetails() {
@@ -377,7 +385,15 @@ function renderCompareTable(results) {
   const latest = results[results.length - 1];
   const labels = (latest.scores || []).map((s) => s.label);
   const headerCells = results
-    .map((r) => `<th>${r.attempt}회차<span class="compare-th-date">(${formatAttemptDate(r.created_at)} 작성)</span></th>`)
+    .map(
+      (r, idx) => `
+        <th>
+          <button type="button" class="compare-attempt-btn" data-attempt-idx="${idx}">
+            ${r.attempt}회차<span class="compare-th-date">(${formatAttemptDate(r.created_at)} 작성)</span>
+          </button>
+        </th>
+      `
+    )
     .join('');
 
   let rows = `
@@ -412,6 +428,54 @@ function renderCompareTable(results) {
   `;
 
   table.innerHTML = `<thead><tr><th>구분</th>${headerCells}</tr></thead><tbody>${rows}</tbody>`;
+
+  table.querySelectorAll('.compare-attempt-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.attemptIdx);
+      previewAttemptAnswer(results[idx]);
+    });
+  });
+}
+
+// ---------- 채점 비교표에서 특정 회차의 답안 원문 미리보기 (읽기 전용) ----------
+function resetAnswerPreviewState() {
+  previewingAttempt = null;
+  savedDraftBeforePreview = null;
+  answerText.readOnly = false;
+  document.getElementById('answerPreviewBanner').hidden = true;
+  document.getElementById('btnSubmitAnswer').disabled = false;
+  document.getElementById('btnGrade').disabled = false;
+}
+
+function previewAttemptAnswer(result) {
+  if (result.answer_text === null || result.answer_text === undefined) {
+    alert('이 회차는 답안 원문이 저장되기 전이라 불러올 수 없습니다.');
+    return;
+  }
+  if (previewingAttempt === null) {
+    savedDraftBeforePreview = answerText.value;
+  }
+  previewingAttempt = result.attempt;
+  answerText.value = result.answer_text;
+  answerText.readOnly = true;
+  updateWordCount();
+  currentErrors = [];
+  rebuildHighlight();
+
+  document.getElementById('answerPreviewText').textContent =
+    `${result.attempt}회차 (${formatAttemptDate(result.created_at)} 작성) 제출 당시 답안입니다 — 읽기 전용`;
+  document.getElementById('answerPreviewBanner').hidden = false;
+  document.getElementById('btnSubmitAnswer').disabled = true;
+  document.getElementById('btnGrade').disabled = true;
+}
+
+function exitAnswerPreview() {
+  if (previewingAttempt === null) return;
+  answerText.value = savedDraftBeforePreview ?? '';
+  updateWordCount();
+  currentErrors = [];
+  rebuildHighlight();
+  resetAnswerPreviewState();
 }
 
 async function loadCompareTable() {
@@ -635,6 +699,7 @@ async function resumeSession(sessionId) {
 
     selectedProblem = problem;
     currentSession = session;
+    resetAnswerPreviewState();
     renderProblemList();
     renderProblemDetails();
 
@@ -659,7 +724,7 @@ async function resumeSession(sessionId) {
         { role: 'assistant', text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.' },
       ]);
     }
-    switchView('grade');
+    switchView('work');
   } catch (err) {
     console.error(err);
     alert('답안 기록을 불러오는 데 실패했습니다. 콘솔을 확인하세요.');
@@ -764,7 +829,8 @@ async function gradeAnswer() {
   btnGrade.disabled = true;
   btnGrade.textContent = '채점 중...';
   isGrading = true;
-  switchView('grade');
+  switchView('work');
+  setActiveResultTab('grade');
   showGradeLoading();
   try {
     await saveAnswer();
@@ -775,7 +841,7 @@ async function gradeAnswer() {
     });
     hasGradedInSession = true;
     isGrading = false;
-    updateWorkLayout('grade');
+    updateWorkLayout();
     hideGradeLoading();
     renderScoreResult(result);
     renderProofItems(result);
@@ -785,7 +851,7 @@ async function gradeAnswer() {
     console.error(err);
     alert('채점에 실패했습니다. 콘솔을 확인하세요.');
     isGrading = false;
-    updateWorkLayout('grade');
+    updateWorkLayout();
     hideGradeLoading();
     document.getElementById('gradeContent').hidden = !hadPriorResult;
     document.getElementById('gradeEmpty').hidden = hadPriorResult;
@@ -925,9 +991,11 @@ function bindEvents() {
   };
   document.getElementById('btnCloseRubric').onclick = closeRubricModal;
   document.getElementById('rubricModalBackdrop').onclick = closeRubricModal;
+  document.getElementById('btnExitPreview').onclick = exitAnswerPreview;
   document.querySelectorAll('.sidebar-item').forEach((btn) => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
+  bindTabs();
 }
 
 async function healthCheck() {
