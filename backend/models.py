@@ -63,6 +63,7 @@ class AnalysisResult(Base):
     source = Column(String(64), nullable=False, default="claude")
     scores = Column(JSON, nullable=True)
     grammar_errors = Column(JSON, nullable=True)
+    suggestions = Column(JSON, nullable=True)
     commentary = Column(Text, nullable=True)
     tool_responses = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.datetime("now"))
