@@ -25,5 +25,9 @@ while true; do
     log "frontend 다운 감지 -> 재시작"
     ./manage.sh frontend start >> "$LOG" 2>&1
   fi
+  if ! ./manage.sh frontend2 status | grep -q "실행 중"; then
+    log "frontend2 다운 감지 -> 재시작"
+    ./manage.sh frontend2 start >> "$LOG" 2>&1
+  fi
   sleep "$INTERVAL"
 done

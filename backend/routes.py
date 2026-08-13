@@ -52,7 +52,10 @@ app = FastAPI(title="Paragraphy API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
+    allow_origins=[
+        "http://127.0.0.1:3000", "http://localhost:3000",
+        "http://127.0.0.1:3001", "http://localhost:3001",
+    ],
     # 이 환경(Elice VS Code 터널)의 프록시 도메인은 매 세션 랜덤 서브도메인이므로 정규식으로 허용
     allow_origin_regex=r"https://.*\.tunnel\.elice\.io",
     allow_credentials=True,

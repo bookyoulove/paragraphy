@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paragraphy</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="landingView" class="landing-view">
+      <div class="landing-inner">
+        <div class="landing-badge"><img src="logo.png" alt="Paragraphy" /></div>
+        <h1 class="landing-title">
+          대학 채점 기준으로,<br />
+          내 논술 점수를 바로 확인하세요
+        </h1>
+        <p class="landing-sub">
+          대학별 모의논술과 국립국어원 논증적 글쓰기 주제로 직접 답안을 작성해보세요.<br />
+          대학별 채점 기준을 바탕으로 점수부터 감점 이유, 개선할 부분까지 AI가 바로 첨삭해드립니다.
+        </p>
+        <button id="btnLandingStart" class="landing-cta">Paragraphy 시작하기</button>
+      </div>
+    </div>
+
+    <div id="loginOverlay" class="login-overlay" hidden>
+      <div class="login-card">
+        <div class="brand-block">
+          <div class="brand-badge"><img src="logo.png" alt="Paragraphy" /></div>
+          <div class="brand-text">Paragraphy</div>
+        </div>
+        <div class="login-sub">식별자(이름/별명)를 입력하세요. 이미 사용한 식별자라면 이어서 로그인됩니다.</div>
+        <input id="loginInput" class="text-input" type="text" placeholder="예: 유진" />
+        <button id="btnLogin" class="primary-btn full-width">시작하기</button>
+        <div id="loginError" class="login-error"></div>
+      </div>
+    </div>
+
+    <div id="pageWrap" class="app" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L15 9 L19 13 L8 24" /><path d="M15 9 L18 3 L21 6 L19 13" /><path d="M4 20 L2.5 22.5 L5 21.5 Z" /></svg>
+          <span>Paragraphy</span>
+        </div>
+
+        <button type="button" class="problem-switcher-trigger" id="btnSwitcher">
+          <span class="ps-eyebrow">현재 문제</span>
+          <span id="switcherLabel">선택된 문제가 없습니다</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+
+        <div class="topbar-right">
+          <div class="score-chip" id="scoreChip" hidden>
+            <span class="sc-num" id="scoreChipNum">0</span><span class="sc-max" id="scoreChipMax">/0</span><span class="sc-trend" id="scoreChipTrend"></span>
+          </div>
+          <button type="button" class="icon-btn" id="btnHistory" aria-label="답안 기록 및 채점 비교 열기">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
+          </button>
+          <div class="user-chip">
+            <span id="userLabel"></span>
+            <button type="button" id="btnSwitchUser">전환</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace" id="workspace">
+        <aside class="problem-drawer" id="problemDrawer">
+          <div class="problem-drawer-inner">
+            <div id="problemEmpty" class="panel-empty">문제를 선택하면 문항과 제시문이 여기에 표시됩니다.</div>
+            <div id="problemBody" hidden>
+              <div class="pd-title" id="problemTitle"></div>
+              <div class="pd-meta" id="problemMeta"></div>
+              <div class="pd-content" id="problemContent"></div>
+              <details class="pd-rubric">
+                <summary>채점 기준 보기</summary>
+                <div id="problemRubric" class="pd-rubric-body"></div>
+              </details>
+            </div>
+          </div>
+        </aside>
+
+        <button type="button" class="drawer-toggle left" id="btnProblemDrawerToggle" aria-label="문제 패널 접기/펼치기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6l6 6-6 6" /></svg>
+        </button>
+
+        <section class="canvas-pane">
+          <div id="canvasEmpty" class="canvas-empty">
+            <div class="label-title">아직 선택한 문제가 없습니다</div>
+            <div class="label-sub">위의 “현재 문제”를 눌러 기존 문제를 고르거나 새 문제를 입력해보세요.</div>
+          </div>
+
+          <div id="canvasBody" class="canvas-body" hidden>
+            <div class="canvas-meta">
+              <span class="draft-badge" id="draftBadge">작성 중</span>
+              <span class="word-count" id="wordCounter">0자</span>
+            </div>
+
+            <div id="answerPreviewBanner" class="answer-preview-banner" hidden>
+              <span id="answerPreviewText"></span>
+              <button type="button" id="btnExitPreview">현재 답안으로 돌아가기</button>
+            </div>
+
+            <div class="canvas-scroll">
+              <div class="manuscript">
+                <div id="answerHighlight" class="answer-highlight" aria-hidden="true"></div>
+                <textarea id="answerText" class="answer-input" placeholder="여기에 답안을 작성하세요." spellcheck="false"></textarea>
+              </div>
+            </div>
+
+            <div class="canvas-actions">
+              <span id="answerSaveStatus" class="save-status"></span>
+              <button type="button" id="btnSubmitAnswer" class="ghost-btn">답안 저장</button>
+              <button type="button" id="btnGrade" class="primary-btn">채점 요청</button>
+            </div>
+          </div>
+        </section>
+
+        <button type="button" class="drawer-toggle right" id="btnDrawerToggle" aria-label="결과 패널 접기/펼치기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6" /></svg>
+        </button>
+
+        <aside class="result-drawer" id="resultDrawer">
+          <div class="drawer-tabs">
+            <button type="button" class="dtab active" data-tab="grade">채점 결과</button>
+            <button type="button" class="dtab" data-tab="proof">첨삭 목록</button>
+            <button type="button" class="dtab" data-tab="chat">Tutor Chat</button>
+          </div>
+
+          <div class="drawer-panels">
+            <div class="dpanel active" data-panel="grade">
+              <div id="gradeEmpty" class="panel-empty">아직 채점 결과가 없습니다. 답안을 작성한 뒤 "채점 요청"을 눌러주세요.</div>
+              <div id="gradeLoading" class="panel-loading" hidden>
+                <div class="grade-loading-spinner"></div>
+                <div class="grade-loading-text">채점 중입니다<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span></div>
+                <div class="grade-loading-sub">경과 시간 <span id="gradeLoadingSeconds">0</span>초 · 보통 20~60초 정도 걸립니다</div>
+              </div>
+              <div id="gradeContent" class="score-card" hidden>
+                <div class="score-row">
+                  <div class="score-ring" id="scoreRing">
+                    <div class="score-ring-inner">
+                      <span class="n" id="scoreNumber">0</span><span class="d" id="scoreDivider">/0</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="score-summary-title" id="scoreTitle">채점 결과</div>
+                    <div class="score-summary-text" id="scoreSub"></div>
+                  </div>
+                </div>
+
+                <div id="criteriaList"></div>
+
+                <div class="checklist-box">
+                  <div class="checklist-title">수정 방향성</div>
+                  <ul id="suggestionList"></ul>
+                </div>
+
+                <div id="compareSection" class="compare-mini" hidden>
+                  <div class="compare-mini-title">채점 비교 (같은 세션 내 재채점 이력)</div>
+                  <div class="compare-table-wrap">
+                    <table id="compareTable" class="compare-table"></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dpanel" data-panel="proof">
+              <div id="proofCount" class="proof-count"></div>
+              <div id="proofList">
+                <div class="proof-card">
+                  <span class="proof-tag content">정보</span>
+                  <div class="proof-note">채점 후 문법 및 첨삭 항목이 표시됩니다.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dpanel" data-panel="chat">
+              <div id="chatMessages" class="chat-thread">
+                <div class="chat-msg-row">
+                  <div class="chat-avatar">AI</div>
+                  <div class="chat-bubble">세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.</div>
+                </div>
+              </div>
+              <div class="chat-input-row">
+                <input id="chatInput" type="text" placeholder="Tutor에게 질문하기" />
+                <button type="button" class="chat-send" id="btnSendChat" aria-label="전송"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15" /><path d="M13 6l6 6-6 6" /></svg></button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <!-- 문제 전환: 커맨드 팔레트형 오버레이 (browse ↔ custom 두 모드) -->
+    <div class="overlay" id="switcherOverlay" hidden>
+      <div class="switcher-card">
+        <div class="switcher-search-row" id="switcherBrowseHead">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+          <input type="text" id="switcherSearch" placeholder="문제 검색 — 학교, 연도, 키워드..." />
+          <button type="button" class="close-btn" id="btnCloseSwitcher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+        </div>
+        <div class="switcher-list" id="switcherList"></div>
+
+        <div class="switcher-custom" id="switcherCustom" hidden>
+          <div class="switcher-search-row">
+            <button type="button" class="ghost-btn small" id="btnBackToBrowse">← 목록으로</button>
+            <div style="flex:1"></div>
+            <button type="button" class="close-btn" id="btnCloseSwitcher2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+          </div>
+          <div class="switcher-custom-body">
+            <label class="field-label">문제 제목</label>
+            <input id="customTitle" class="text-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
+
+            <label class="field-label">문제 본문 / 제시문</label>
+            <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
+
+            <div class="rubric-row">
+              <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
+              <button type="button" class="ghost-btn small" id="btnGenerateRubric">AI로 채점기준 생성</button>
+            </div>
+            <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
+            <div id="rubricStatus" class="rubric-status"></div>
+
+            <button type="button" id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 답안 기록 + 채점 비교 통합 슬라이드오버 -->
+    <div class="overlay overlay-right" id="historyOverlay" hidden>
+      <div class="history-card">
+        <div class="history-head">
+          <div>
+            <div class="hh-title">답안 기록 · 채점 비교</div>
+            <div class="hh-sub">2회 이상 채점한 항목은 회차 비교가 함께 보입니다</div>
+          </div>
+          <button type="button" class="close-btn" id="btnCloseHistory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+        </div>
+        <div class="history-list" id="historyList">불러오는 중...</div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
