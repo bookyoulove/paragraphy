@@ -45,9 +45,10 @@ def test_results_track_multiple_grading_attempts(client, fake_claude):
     results = res.json()
     assert len(results) == 2
     assert [r["attempt"] for r in results] == [1, 2]
-    assert results[0]["score"] == 2
+    # 각 회차 점수 + 시스템이 자동 추가하는 "문법과 어휘" 5/5 (Bareun 오류 0건 → 만점)
+    assert results[0]["score"] == 7
     assert results[0]["grammar_error_count"] == 1
-    assert results[1]["score"] == 4
+    assert results[1]["score"] == 9
     assert results[1]["grammar_error_count"] == 0
     # 회차가 오래된 순으로 정렬되어 있어야 한다 (비교표는 최신 회차가 마지막 열)
     assert results[0]["created_at"] <= results[1]["created_at"]
