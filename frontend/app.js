@@ -430,6 +430,60 @@ function renderChatMessages(messages) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// ---------- Tutor 응답 대기 중 "생각 중" 표시 ----------
+const THINKING_PHRASES = [
+  'Tutor가 답변을 생각하고 있어요',
+  '채점 결과를 다시 살펴보는 중이에요',
+  '질문에 맞는 답을 정리하고 있어요',
+  '조금만 더 기다려주세요',
+];
+
+let thinkingInterval = null;
+
+function showTypingIndicator() {
+  removeTypingIndicator();
+  const el = document.createElement('div');
+  el.id = 'chatTypingIndicator';
+  el.className = 'chat-box chat-assistant';
+  el.innerHTML = `
+    <div class="chat-badge assistant">AI</div>
+    <div class="chat-msg chat-typing-msg">
+      <span id="chatTypingText">${escapeHtml(THINKING_PHRASES[0])}</span><span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+  `;
+  chatMessages.appendChild(el);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  let idx = 0;
+  thinkingInterval = setInterval(() => {
+    idx = (idx + 1) % THINKING_PHRASES.length;
+    const textEl = document.getElementById('chatTypingText');
+    if (textEl) textEl.textContent = THINKING_PHRASES[idx];
+  }, 2200);
+}
+
+function removeTypingIndicator() {
+  if (thinkingInterval) {
+    clearInterval(thinkingInterval);
+    thinkingInterval = null;
+  }
+  document.getElementById('chatTypingIndicator')?.remove();
+}
+
+// 채점이 처음 끝났을 때, 아직 실제 대화가 없다면 Tutor Chat 사용을 유도하는 안내로 교체한다.
+function showPostGradeChatHint() {
+  const realMessageCount = chatMessages.querySelectorAll('.chat-box').length;
+  if (realMessageCount > 1) return; // 이미 대화가 진행 중이면 덮어쓰지 않음
+  renderChatMessages([
+    {
+      role: 'assistant',
+      text:
+        '채점이 완료되었습니다! 궁금한 점을 Tutor에게 물어보세요.\n' +
+        '예시: "왜 이 점수가 나왔어?" / "첫 번째 첨삭 이유를 자세히 설명해줘" / "어떻게 고치면 점수가 오를까?"',
+    },
+  ]);
+}
+
 // ---------- API 호출 ----------
 async function fetchApi(path, options = {}) {
   const res = await fetch(`${API}${path}`, options);
@@ -490,6 +544,32 @@ async function createSession() {
   }
 }
 
+let sessionAutoStartInFlight = false;
+
+// 답안을 입력하기 시작하면 "세션 시작" 버튼을 누르지 않아도 자동으로 세션을 만든다.
+async function ensureSessionStarted() {
+  if (currentSession || sessionAutoStartInFlight) return;
+  if (!currentUser || !selectedProblem) return;
+  sessionAutoStartInFlight = true;
+  try {
+    await createSession();
+  } finally {
+    sessionAutoStartInFlight = false;
+  }
+}
+
+let saveStatusTimer = null;
+
+function showSaveStatus(message) {
+  const el = document.getElementById('answerSaveStatus');
+  if (!el) return;
+  el.textContent = message;
+  if (saveStatusTimer) clearTimeout(saveStatusTimer);
+  saveStatusTimer = setTimeout(() => {
+    el.textContent = '';
+  }, 2500);
+}
+
 async function saveAnswer() {
   if (!currentSession) {
     alert('세션을 먼저 시작하세요.');
@@ -506,6 +586,7 @@ async function saveAnswer() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: currentSession.id, text, status: 'draft' }),
     });
+    showSaveStatus('답안이 저장되었습니다.');
   } catch (err) {
     console.error(err);
     alert('답안 저장에 실패했습니다. 콘솔을 확인하세요.');
@@ -531,6 +612,7 @@ async function gradeAnswer() {
     updateLayout();
     renderScoreResult(result);
     renderProofItems(result);
+    showPostGradeChatHint();
     await loadCompareTable();
     document.querySelector('.tab[data-tab="grade"]').click();
   } catch (err) {
@@ -557,6 +639,7 @@ async function sendChat() {
   }));
   existing.push({ role: 'user', text });
   renderChatMessages(existing);
+  showTypingIndicator();
 
   const btnSend = document.getElementById('btnSendChat');
   btnSend.disabled = true;
@@ -566,9 +649,11 @@ async function sendChat() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: currentSession.id, text }),
     });
+    removeTypingIndicator();
     renderChatMessages(response.messages);
   } catch (err) {
     console.error(err);
+    removeTypingIndicator();
     alert('Tutor 응답을 받는 데 실패했습니다. 콘솔을 확인하세요.');
   } finally {
     btnSend.disabled = false;
@@ -659,6 +744,7 @@ function bindEvents() {
     updateWordCount();
     currentErrors = [];
     rebuildHighlight();
+    ensureSessionStarted();
   });
   answerText.addEventListener('scroll', syncHighlightScroll);
   btnToggleProblem.onclick = () => {
