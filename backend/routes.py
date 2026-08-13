@@ -16,6 +16,7 @@ from .schemas import (
     AnswerOut,
     GradeRequest,
     GradeResultOut,
+    ResultSummaryOut,
     ChatMessageIn,
     ChatResponseOut,
     LoginRequest,
@@ -23,7 +24,7 @@ from .schemas import (
     RubricGenerateRequest,
     RubricGenerateOut,
 )
-from .service import grade_answer, chat_agent_reply, generate_rubric
+from .service import grade_answer, chat_agent_reply, generate_rubric, sum_scores
 from .seed_data import build_seed_problems
 
 
@@ -196,6 +197,37 @@ async def grade_session(request: GradeRequest, db: Session = Depends(get_db)):
         "suggestions": result.suggestions or [],
         "grammar_errors": result.grammar_errors or [],
     }
+
+
+@app.get("/api/sessions/{session_id}/results", response_model=List[ResultSummaryOut])
+def list_session_results(session_id: int, db: Session = Depends(get_db)):
+    """세션 내 채점 시도들을 회차순으로 반환한다 (채점 비교표용)."""
+    session = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    results = (
+        db.query(AnalysisResult)
+        .filter(AnalysisResult.session_id == session_id)
+        .order_by(AnalysisResult.id.asc())
+        .all()
+    )
+    summaries = []
+    for idx, result in enumerate(results):
+        score, total_max = sum_scores(result.scores)
+        summaries.append(
+            {
+                "id": result.id,
+                "attempt": idx + 1,
+                "created_at": result.created_at,
+                "score": score,
+                "total_max": total_max,
+                "scores": result.scores or [],
+                "grammar_error_count": len(result.grammar_errors or []),
+                "commentary": result.commentary,
+            }
+        )
+    return summaries
 
 
 @app.post("/api/chat", response_model=ChatResponseOut)

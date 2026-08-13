@@ -103,6 +103,17 @@ class GradeResultOut(BaseModel):
     grammar_errors: Optional[List[Dict[str, Any]]] = []
 
 
+class ResultSummaryOut(BaseModel):
+    id: int
+    attempt: int
+    created_at: Optional[datetime] = None
+    score: int
+    total_max: int
+    scores: List[ScoreItem]
+    grammar_error_count: int
+    commentary: Optional[str] = None
+
+
 class ChatMessageIn(BaseModel):
     session_id: int
     text: str
