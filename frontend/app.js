@@ -806,6 +806,14 @@ function bindEvents() {
   };
   btnOpenPicker.onclick = showPicker;
   btnBackToWork.onclick = backToWork;
+  document.getElementById('btnShowRubric').onclick = () => {
+    document.getElementById('rubricModal').hidden = false;
+  };
+  const closeRubricModal = () => {
+    document.getElementById('rubricModal').hidden = true;
+  };
+  document.getElementById('btnCloseRubric').onclick = closeRubricModal;
+  document.getElementById('rubricModalBackdrop').onclick = closeRubricModal;
   bindTabs();
   bindModeTabs();
 }
