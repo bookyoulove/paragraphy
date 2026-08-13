@@ -22,6 +22,7 @@ let currentErrors = [];
 let currentUser = null;
 let hasGradedInSession = false;
 let isGrading = false;
+let currentView = 'pick-existing';
 
 const problemList = document.getElementById('problemList');
 const problemTitle = document.getElementById('problemTitle');
@@ -44,15 +45,21 @@ const answerBox = document.getElementById('answerBox');
 const resultPanel = document.getElementById('resultPanel');
 const leftColumn = document.getElementById('leftColumn');
 const rightColumn = document.getElementById('rightColumn');
-const pickerView = document.getElementById('pickerView');
 const workColumns = document.getElementById('workColumns');
+const workEmptyState = document.getElementById('workEmptyState');
 const currentProblemLabel = document.getElementById('currentProblemLabel');
-const btnStartSession = document.getElementById('btnStartSession');
-const btnOpenPicker = document.getElementById('btnOpenPicker');
-const btnBackToWork = document.getElementById('btnBackToWork');
 
-// true면 문제가 이미 선택되어 있어도 강제로 문제 선택 화면을 보여준다 (문제 변경용)
-let forcePickerView = false;
+// 사이드바 메뉴("문제 선택"/"채점"/"첨삭"/"챗봇"/"답안 기록"/"채점 비교")가 공유하는 콘텐츠 영역.
+// 채점/첨삭/챗봇 세 메뉴는 같은 작업 세션(#view-grade)을 서로 다른 탭으로 보여준다.
+const CONTENT_VIEWS = {
+  'pick-existing': document.getElementById('view-pick-existing'),
+  'pick-custom': document.getElementById('view-pick-custom'),
+  grade: document.getElementById('view-grade'),
+  proof: document.getElementById('view-grade'),
+  chat: document.getElementById('view-grade'),
+  history: document.getElementById('view-history'),
+  compare: document.getElementById('view-compare'),
+};
 
 function escapeHtml(str) {
   return str
@@ -140,86 +147,71 @@ function switchUser() {
   localStorage.removeItem(USER_STORAGE_KEY);
   currentUser = null;
   currentSession = null;
-  updateControlBar();
+  updateInfoBar();
   showLogin();
 }
 
-// ---------- 탭 전환 (채점결과/첨삭/챗봇) ----------
-function bindTabs() {
-  document.querySelectorAll('.tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
-      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === target));
-    });
+// ---------- 사이드바 메뉴 전환 ----------
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.sidebar-item').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.view === view);
   });
-}
 
-// ---------- 문제 선택 모드 (기존 문제 / 직접 입력) ----------
-function bindModeTabs() {
-  document.querySelectorAll('.mode-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.mode;
-      document.querySelectorAll('.mode-tab').forEach((t) => t.classList.toggle('active', t === tab));
-      document.querySelectorAll('.mode-panel').forEach((p) => p.classList.toggle('active', p.dataset.modePanel === target));
-    });
+  new Set(Object.values(CONTENT_VIEWS)).forEach((section) => {
+    section.hidden = true;
   });
+  CONTENT_VIEWS[view].hidden = false;
+
+  if (view === 'grade' || view === 'proof' || view === 'chat') {
+    updateWorkLayout(view);
+  } else if (view === 'history') {
+    loadHistoryView();
+  } else if (view === 'compare') {
+    loadCompareView();
+  }
+  updateInfoBar();
 }
 
-// ---------- 문제 선택 화면 전환 (문제 변경용) ----------
-function showPicker() {
-  forcePickerView = true;
-  updateLayout();
-}
-
-function backToWork() {
-  forcePickerView = false;
-  updateLayout();
-}
-
-// ---------- 작업 레이아웃 전환 (문제선택 ↔ 문제/답안 ↔ 답안/채점결과) ----------
-function updateControlBar() {
+// 채점/첨삭/챗봇 메뉴가 공유하는 작업 영역(문제·답안·채점결과)을 view에 맞게 재구성한다.
+function updateWorkLayout(view) {
   if (!selectedProblem) {
-    currentProblemLabel.textContent = '선택된 문제가 없습니다.';
-    btnStartSession.hidden = true;
-    btnOpenPicker.hidden = true;
-    sessionStatus.textContent = '';
+    workEmptyState.hidden = false;
+    workColumns.hidden = true;
     return;
   }
-  currentProblemLabel.textContent = `${selectedProblem.title} — ${formatMeta(selectedProblem.meta)}`;
-  btnOpenPicker.hidden = forcePickerView;
-  if (currentSession) {
-    btnStartSession.hidden = true;
-    sessionStatus.textContent = `세션 ${currentSession.id} 진행 중`;
-  } else {
-    btnStartSession.hidden = false;
-    sessionStatus.textContent = '세션이 아직 시작되지 않았습니다.';
-  }
-}
-
-function updateLayout() {
-  updateControlBar();
-
-  const showingPicker = !selectedProblem || forcePickerView;
-  pickerView.hidden = !showingPicker;
-  workColumns.hidden = showingPicker;
-  btnBackToWork.hidden = !selectedProblem;
-  if (showingPicker) return;
+  workEmptyState.hidden = true;
+  workColumns.hidden = false;
 
   answerBox.hidden = false;
-  if (hasGradedInSession || isGrading) {
-    // 채점 단계(채점 중 로딩 포함): 답안이 왼쪽, 채점/첨삭/챗봇이 오른쪽
-    problemBox.hidden = true;
-    resultPanel.hidden = false;
-    leftColumn.appendChild(answerBox);
-    rightColumn.appendChild(resultPanel);
-  } else {
-    // 작성 단계: 문제/지문이 왼쪽, 답안 작성이 오른쪽
+  if (view === 'grade' && !hasGradedInSession && !isGrading) {
+    // 채점 전: 문제/지문이 왼쪽, 답안 작성이 오른쪽
     problemBox.hidden = false;
     resultPanel.hidden = true;
     leftColumn.appendChild(problemBox);
     rightColumn.appendChild(answerBox);
+  } else {
+    // 채점/첨삭/챗봇: 답안이 왼쪽, 결과 패널이 오른쪽 (탭만 view에 맞게 전환)
+    problemBox.hidden = true;
+    resultPanel.hidden = false;
+    leftColumn.appendChild(answerBox);
+    rightColumn.appendChild(resultPanel);
+    setActiveResultTab(view === 'grade' ? 'grade' : view);
   }
+}
+
+function setActiveResultTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+}
+
+function updateInfoBar() {
+  if (!selectedProblem) {
+    currentProblemLabel.textContent = '선택된 문제가 없습니다.';
+    sessionStatus.textContent = '';
+    return;
+  }
+  currentProblemLabel.textContent = `${selectedProblem.title} — ${formatMeta(selectedProblem.meta)}`;
+  sessionStatus.textContent = currentSession ? `세션 ${currentSession.id} 진행 중` : '세션이 아직 시작되지 않았습니다.';
 }
 
 // ---------- 답안 하이라이트 오버레이 ----------
@@ -283,14 +275,14 @@ function selectProblem(problem) {
   const isDifferentProblem = !selectedProblem || selectedProblem.id !== problem.id;
   selectedProblem = problem;
   currentSession = null;
-  forcePickerView = false;
   if (isDifferentProblem) {
     answerText.value = '';
     updateWordCount();
   }
   renderProblemList();
   renderProblemDetails();
-  resetResultPanels(); // 내부에서 updateLayout() 호출
+  resetResultPanels();
+  switchView('grade');
 }
 
 function renderProblemDetails() {
@@ -553,7 +545,7 @@ async function loadProblems() {
   }
 }
 
-// ---------- 답안 기록 (지난 세션 목록 → 이어서 수정/재채점) ----------
+// ---------- 답안 기록 / 채점 비교 (지난 세션 목록 → 이어서 수정/재채점) ----------
 function formatHistoryDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -561,10 +553,9 @@ function formatHistoryDate(iso) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function renderHistoryList(sessions) {
-  const box = document.getElementById('historyList');
+function renderSessionCards(box, sessions, emptyMessage) {
   if (!sessions.length) {
-    box.innerHTML = '<div class="panel-empty">아직 작성한 답안이 없습니다. 문제를 선택해 답안을 작성해보세요.</div>';
+    box.innerHTML = `<div class="panel-empty">${emptyMessage}</div>`;
     return;
   }
   box.innerHTML = sessions
@@ -592,25 +583,37 @@ function renderHistoryList(sessions) {
   });
 }
 
-async function openHistoryModal() {
+async function loadHistoryView() {
+  const box = document.getElementById('historyList');
   if (!currentUser) {
-    alert('먼저 로그인하세요.');
+    box.innerHTML = '<div class="panel-empty">먼저 로그인하세요.</div>';
     return;
   }
-  document.getElementById('historyModal').hidden = false;
-  const box = document.getElementById('historyList');
   box.innerHTML = '불러오는 중...';
   try {
     const sessions = await fetchApi(`/api/sessions/user/${currentUser.id}`);
-    renderHistoryList(sessions);
+    renderSessionCards(box, sessions, '아직 작성한 답안이 없습니다. 문제를 선택해 답안을 작성해보세요.');
   } catch (err) {
     console.error(err);
     box.innerHTML = '<div class="panel-empty">답안 기록을 불러오지 못했습니다. 콘솔을 확인하세요.</div>';
   }
 }
 
-function closeHistoryModal() {
-  document.getElementById('historyModal').hidden = true;
+async function loadCompareView() {
+  const box = document.getElementById('compareList');
+  if (!currentUser) {
+    box.innerHTML = '<div class="panel-empty">먼저 로그인하세요.</div>';
+    return;
+  }
+  box.innerHTML = '불러오는 중...';
+  try {
+    const sessions = await fetchApi(`/api/sessions/user/${currentUser.id}`);
+    const multi = sessions.filter((s) => s.attempt_count >= 2);
+    renderSessionCards(box, multi, '아직 2회 이상 채점된 문제가 없습니다. 답안 기록에서 답안을 수정한 뒤 다시 채점해보세요.');
+  } catch (err) {
+    console.error(err);
+    box.innerHTML = '<div class="panel-empty">채점 비교 목록을 불러오지 못했습니다. 콘솔을 확인하세요.</div>';
+  }
 }
 
 async function resumeSession(sessionId) {
@@ -630,11 +633,8 @@ async function resumeSession(sessionId) {
       fetchApi(`/api/sessions/${session.id}/results`),
     ]);
 
-    closeHistoryModal();
-
     selectedProblem = problem;
     currentSession = session;
-    forcePickerView = false;
     renderProblemList();
     renderProblemDetails();
 
@@ -659,7 +659,7 @@ async function resumeSession(sessionId) {
         { role: 'assistant', text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.' },
       ]);
     }
-    updateLayout();
+    switchView('grade');
   } catch (err) {
     console.error(err);
     alert('답안 기록을 불러오는 데 실패했습니다. 콘솔을 확인하세요.');
@@ -680,7 +680,6 @@ function resetResultPanels() {
   renderChatMessages([
     { role: 'assistant', text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.' },
   ]);
-  updateLayout();
 }
 
 async function createSession() {
@@ -698,7 +697,7 @@ async function createSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: currentUser.id, problem_id: selectedProblem.id, problem_source: selectedProblem.source }),
     });
-    updateControlBar();
+    updateInfoBar();
     resetResultPanels();
   } catch (err) {
     console.error(err);
@@ -765,8 +764,7 @@ async function gradeAnswer() {
   btnGrade.disabled = true;
   btnGrade.textContent = '채점 중...';
   isGrading = true;
-  updateLayout();
-  document.querySelector('.tab[data-tab="grade"]').click();
+  switchView('grade');
   showGradeLoading();
   try {
     await saveAnswer();
@@ -777,7 +775,7 @@ async function gradeAnswer() {
     });
     hasGradedInSession = true;
     isGrading = false;
-    updateLayout();
+    updateWorkLayout('grade');
     hideGradeLoading();
     renderScoreResult(result);
     renderProofItems(result);
@@ -787,7 +785,7 @@ async function gradeAnswer() {
     console.error(err);
     alert('채점에 실패했습니다. 콘솔을 확인하세요.');
     isGrading = false;
-    updateLayout();
+    updateWorkLayout('grade');
     hideGradeLoading();
     document.getElementById('gradeContent').hidden = !hadPriorResult;
     document.getElementById('gradeEmpty').hidden = hadPriorResult;
@@ -884,7 +882,6 @@ async function createCustomProblem() {
     });
     await loadProblems();
     selectProblem(problems.find((p) => p.id === problem.id) || problem);
-    document.querySelector('.mode-tab[data-mode="existing"]').click();
     document.getElementById('customTitle').value = '';
     document.getElementById('customContent').value = '';
     document.getElementById('customRubric').value = '';
@@ -900,7 +897,6 @@ async function createCustomProblem() {
 function bindEvents() {
   document.getElementById('btnLandingStart').onclick = enterApp;
   document.getElementById('btnLoadProblems').onclick = loadProblems;
-  document.getElementById('btnStartSession').onclick = createSession;
   document.getElementById('btnSubmitAnswer').onclick = saveAnswer;
   document.getElementById('btnGrade').onclick = gradeAnswer;
   document.getElementById('btnSendChat').onclick = sendChat;
@@ -921,8 +917,6 @@ function bindEvents() {
     ensureSessionStarted();
   });
   answerText.addEventListener('scroll', syncHighlightScroll);
-  btnOpenPicker.onclick = showPicker;
-  btnBackToWork.onclick = backToWork;
   document.getElementById('btnShowRubric').onclick = () => {
     document.getElementById('rubricModal').hidden = false;
   };
@@ -931,23 +925,19 @@ function bindEvents() {
   };
   document.getElementById('btnCloseRubric').onclick = closeRubricModal;
   document.getElementById('rubricModalBackdrop').onclick = closeRubricModal;
-  document.getElementById('btnShowHistory').onclick = openHistoryModal;
-  document.getElementById('btnCloseHistory').onclick = closeHistoryModal;
-  document.getElementById('historyModalBackdrop').onclick = closeHistoryModal;
-  bindTabs();
-  bindModeTabs();
+  document.querySelectorAll('.sidebar-item').forEach((btn) => {
+    btn.addEventListener('click', () => switchView(btn.dataset.view));
+  });
 }
 
 async function healthCheck() {
   try {
     const res = await fetch(`${API}/health`);
-    const data = await res.json();
-    const status = document.querySelector('.topbar-meta');
-    if (status) status.textContent = `대입 논술 채점 · 첨삭 · ${data.environment || 'online'}`;
+    await res.json();
   } catch (err) {
     console.error('Backend not ready yet', err);
     const status = document.querySelector('.topbar-meta');
-    if (status) status.textContent = '대입 논술 채점 · 첨삭 · 백엔드 연결 실패';
+    if (status) status.textContent = '논술 채점 · 첨삭 (백엔드 연결 실패)';
   }
 }
 
@@ -959,8 +949,7 @@ async function init() {
     userLabel.textContent = storedUser.identifier;
   }
   await loadProblems();
-  updateControlBar();
-  updateLayout();
+  switchView('pick-existing');
   updateWordCount();
   rebuildHighlight();
   healthCheck();

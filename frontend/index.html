@@ -42,8 +42,7 @@
           <div class="brand-text">Paragraphy</div>
         </div>
         <div class="topbar-right">
-          <div class="topbar-meta">대입 논술 채점 · 첨삭</div>
-          <button id="btnShowHistory" class="ghost-btn dark">답안 기록</button>
+          <div class="topbar-meta">논술 채점 · 첨삭</div>
           <div class="topbar-user">
             <span id="userLabel"></span>
             <button id="btnSwitchUser" class="ghost-btn dark">전환</button>
@@ -51,61 +50,106 @@
         </div>
       </header>
 
-      <main class="main-layout">
-        <div class="control-bar">
-          <button id="btnOpenPicker" class="primary-btn" hidden>문제 선택</button>
-          <div class="control-bar-info">
+      <div class="app-shell">
+        <nav class="sidebar">
+          <ul class="sidebar-menu">
+            <li><button type="button" class="sidebar-item" data-view="pick-existing">문제 선택</button></li>
+            <li><button type="button" class="sidebar-item" data-view="pick-custom">문제 직접 입력</button></li>
+            <li><button type="button" class="sidebar-item" data-view="grade">채점</button></li>
+            <li><button type="button" class="sidebar-item" data-view="proof">첨삭</button></li>
+            <li><button type="button" class="sidebar-item" data-view="chat">챗봇</button></li>
+            <li class="sidebar-sep"></li>
+            <li><button type="button" class="sidebar-item" data-view="history">답안 기록</button></li>
+            <li><button type="button" class="sidebar-item" data-view="compare">채점 비교</button></li>
+          </ul>
+        </nav>
+
+        <main class="main-content">
+          <div class="content-info-bar">
             <span id="currentProblemLabel" class="current-problem-label">선택된 문제가 없습니다.</span>
             <span id="sessionStatus" class="session-status"></span>
           </div>
-          <button id="btnStartSession" class="primary-btn" hidden>세션 시작</button>
-        </div>
 
-        <!-- 문제 선택 화면: 팝업이 아니라 문제 미선택 시 첫 화면으로 표시됨 -->
-        <div id="pickerView" class="picker-view">
-          <div class="picker-view-header">
-            <div>
-              <div class="label-title">문제 선택</div>
-              <div class="label-sub">기존 문제를 고르거나, 직접 문제와 채점기준을 입력할 수 있습니다.</div>
+          <!-- 문제 선택 -->
+          <section id="view-pick-existing" class="content-view" hidden>
+            <div class="picker-view">
+              <div class="picker-view-header">
+                <div>
+                  <div class="label-title">문제 선택</div>
+                  <div class="label-sub">기존에 등록된 문제 중 하나를 선택하면 바로 답안 작성으로 이동합니다.</div>
+                </div>
+                <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
+              </div>
+              <div id="problemList" class="problem-list"></div>
             </div>
-            <button id="btnBackToWork" class="ghost-btn" hidden>돌아가기</button>
-          </div>
+          </section>
 
-          <div class="mode-tabs">
-            <button class="mode-tab active" data-mode="existing">기존 문제에서 선택</button>
-            <button class="mode-tab" data-mode="custom">직접 입력</button>
-          </div>
+          <!-- 문제 직접 입력 -->
+          <section id="view-pick-custom" class="content-view" hidden>
+            <div class="picker-view">
+              <div class="picker-view-header">
+                <div>
+                  <div class="label-title">문제 직접 입력</div>
+                  <div class="label-sub">문제와 채점 기준을 직접 입력하거나, AI로 채점 기준을 생성할 수 있습니다.</div>
+                </div>
+              </div>
 
-          <div class="mode-panel active" data-mode-panel="existing">
-            <div class="picker-list-header">
-              <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
+              <label class="field-label">문제 제목</label>
+              <input id="customTitle" class="select-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
+
+              <label class="field-label">문제 본문 / 제시문</label>
+              <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
+
+              <div class="rubric-row">
+                <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
+                <button id="btnGenerateRubric" class="ghost-btn">AI로 채점기준 생성</button>
+              </div>
+              <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
+              <div id="rubricStatus" class="session-status"></div>
+
+              <button id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
             </div>
-            <div id="problemList" class="problem-list"></div>
-          </div>
+          </section>
 
-          <div class="mode-panel" data-mode-panel="custom">
-            <label class="field-label">문제 제목</label>
-            <input id="customTitle" class="select-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
-
-            <label class="field-label">문제 본문 / 제시문</label>
-            <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
-
-            <div class="rubric-row">
-              <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
-              <button id="btnGenerateRubric" class="ghost-btn">AI로 채점기준 생성</button>
+          <!-- 채점 / 첨삭 / 챗봇 (같은 작업 세션의 세 가지 관점) -->
+          <section id="view-grade" class="content-view" hidden>
+            <div id="workEmptyState" class="empty-state" hidden>
+              <div class="label-title">먼저 문제를 선택해주세요</div>
+              <div class="label-sub">왼쪽 메뉴의 "문제 선택" 또는 "문제 직접 입력"에서 시작할 수 있습니다.</div>
             </div>
-            <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
-            <div id="rubricStatus" class="session-status"></div>
+            <div id="workColumns" class="work-columns" hidden>
+              <section id="leftColumn" class="column-slot"></section>
+              <section id="rightColumn" class="column-slot"></section>
+            </div>
+          </section>
 
-            <button id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
-          </div>
-        </div>
+          <!-- 답안 기록 -->
+          <section id="view-history" class="content-view" hidden>
+            <div class="picker-view">
+              <div class="picker-view-header">
+                <div>
+                  <div class="label-title">답안 기록</div>
+                  <div class="label-sub">지금까지 작성한 답안을 다시 열어 이어서 수정하고, 재채점하여 점수를 비교할 수 있습니다.</div>
+                </div>
+              </div>
+              <div id="historyList" class="history-list">불러오는 중...</div>
+            </div>
+          </section>
 
-        <div id="workColumns" class="work-columns" hidden>
-          <section id="leftColumn" class="column-slot"></section>
-          <section id="rightColumn" class="column-slot"></section>
-        </div>
-      </main>
+          <!-- 채점 비교 -->
+          <section id="view-compare" class="content-view" hidden>
+            <div class="picker-view">
+              <div class="picker-view-header">
+                <div>
+                  <div class="label-title">채점 비교</div>
+                  <div class="label-sub">2회 이상 채점한 문제를 선택하면 "채점" 화면에서 회차별 점수를 비교할 수 있습니다.</div>
+                </div>
+              </div>
+              <div id="compareList" class="history-list">불러오는 중...</div>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
 
     <!-- 재사용 컴포넌트: JS가 상태에 따라 leftColumn/rightColumn 사이로 이동시킴 -->
@@ -132,20 +176,6 @@
       </div>
     </div>
 
-    <div id="historyModal" class="rubric-modal" hidden>
-      <div id="historyModalBackdrop" class="rubric-modal-backdrop"></div>
-      <div class="rubric-modal-card">
-        <div class="rubric-modal-header">
-          <div>
-            <div class="label-title">답안 기록</div>
-            <div class="label-sub">지금까지 작성한 답안을 다시 열어 이어서 수정하고, 재채점하여 점수를 비교할 수 있습니다.</div>
-          </div>
-          <button id="btnCloseHistory" class="ghost-btn">닫기 ✕</button>
-        </div>
-        <div id="historyList" class="rubric-modal-body history-list">불러오는 중...</div>
-      </div>
-    </div>
-
     <div id="answerBox" class="answer-box" hidden>
       <div class="answer-header">
         <div class="answer-title">답안 작성</div>
@@ -165,12 +195,6 @@
     </div>
 
     <aside id="resultPanel" class="right-panel" hidden>
-      <div class="tabs">
-        <button class="tab active" data-tab="grade">채점 결과</button>
-        <button class="tab" data-tab="proof">첨삭 목록</button>
-        <button class="tab" data-tab="chat">Tutor Chat</button>
-      </div>
-
       <div class="tab-panels">
         <!-- 채점 결과 -->
         <div class="tab-panel active" data-panel="grade">
