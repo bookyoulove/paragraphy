@@ -74,7 +74,7 @@ start_frontend() {
     echo "frontend 이미 실행 중 (PID $(cat "$FRONTEND_PID_FILE"))"
     return
   fi
-  nohup python3 -m http.server 3000 --directory frontend \
+  nohup python3 serve_frontend.py 3000 \
     > "$FRONTEND_LOG_FILE" 2>&1 &
   echo $! > "$FRONTEND_PID_FILE"
   sleep 1
