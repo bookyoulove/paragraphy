@@ -17,7 +17,7 @@ CHAT_TOOLS = [t for t in TOOLS if t["function"]["name"] != "get_feedback"]
 GRADING_OUTPUT_SPEC = """
 반드시 아래 JSON 형식으로만 답하라 (다른 텍스트, 설명, 코드펜스 없이 JSON 객체 하나만):
 {
-  "scores": [{"label": "준거명", "value": 정수, "max_score": 정수}, ...],
+  "scores": [{"label": "준거명", "value": 1~5 사이 정수, "max_score": 5}, ...],
   "commentary": "총평 2문장 이내",
   "suggestions": ["수정 방향 1", "수정 방향 2", "수정 방향 3"],
   "grammar_errors": [
@@ -34,12 +34,16 @@ def _grading_system_prompt(problem: Optional[Problem]) -> str:
     source = problem.source if problem else "일반"
     base = (
         "당신은 한국 대입 논술·국어 논증적 글쓰기를 채점하는 전문 채점관(Grading Agent)입니다.\n"
-        "채점은 반드시 아래에 주어진 '문제 출처별 채점 기준'만 근거로 삼아야 하며, "
+        "채점은 반드시 아래에 주어진 '문제 출처별 채점 기준'의 평가 항목과 관점만 근거로 삼아야 하며, "
         "다른 대학/기관의 일반적인 채점 관행을 임의로 섞어서는 안 됩니다.\n"
+        "매우 중요: 이 플랫폼은 출처와 무관하게 모든 채점 항목을 1~5점 척도로 통일한다. 채점 기준 "
+        "원문에 다른 배점(예: 20점, 50점, 100점 만점 등)이 적혀 있더라도, 그 항목이 '무엇을 평가하는지'"
+        "만 그대로 가져오고 실제 부여하는 점수(value)와 만점(max_score)은 반드시 1~5점 척도로 통일하라 "
+        "(max_score는 모든 항목에서 항상 5).\n"
     )
 
     if problem is None:
-        return base + "채점 기준이 제공되지 않았습니다. 논리성/구성/표현/맞춤법을 기준으로 100점 만점으로 채점하십시오.\n" + GRADING_OUTPUT_SPEC
+        return base + "채점 기준이 제공되지 않았습니다. 논리성/구성/표현/맞춤법을 기준으로 4~6개 항목, 각 1~5점으로 채점하십시오.\n" + GRADING_OUTPUT_SPEC
 
     if source == "국립국어원":
         criteria_lines = "\n".join(f"- {c['label']} (1~5점)" for c in NIKL_CRITERIA)
@@ -52,14 +56,16 @@ def _grading_system_prompt(problem: Optional[Problem]) -> str:
             + GRADING_OUTPUT_SPEC
         )
 
-    # 대학 논술(한양대/경희대 등)은 문서화된 공식 채점기준표를, 사용자입력 문제는 Rubric Agent가
-    # 생성해 사용자가 확정한 채점기준을 그대로 근거로 사용한다.
-    rubric_label = "공식 채점기준 및 배점표" if source != "사용자입력" else "사용자가 확정한 채점기준"
+    # 대학 논술(한양대/경희대 등)은 문서화된 공식 채점기준표의 '평가 항목'을, 사용자입력 문제는
+    # Rubric Agent가 생성해 사용자가 확정한 채점기준의 항목을 그대로 근거로 사용한다.
+    # (배점 자체는 위 공통 규칙에 따라 항상 1~5점으로 통일한다.)
+    rubric_label = "공식 채점기준" if source != "사용자입력" else "사용자가 확정한 채점기준"
     model_answer_block = f"\n\n[모범답안 예시]\n{problem.model_answer}" if problem.model_answer else ""
     return (
         base
         + f"[문제 및 제시문]\n{problem.content}\n\n"
-        + f"[채점 기준 — {source} {rubric_label}, 이 기준의 항목/배점을 그대로 scores 배열로 반영할 것]\n{problem.rubric}"
+        + f"[채점 기준 — {source} {rubric_label}. 이 기준에 명시된 평가 항목과 각 항목이 무엇을 평가"
+          f"하는지는 그대로 따르되, 원문의 배점 숫자는 무시하고 각 항목을 1~5점으로 채점할 것]\n{problem.rubric}"
         + model_answer_block
         + "\n\n"
         + GRADING_OUTPUT_SPEC
