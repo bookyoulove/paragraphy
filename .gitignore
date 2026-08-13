@@ -61,6 +61,17 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Paragraphy backend (SQLite 프로토타입 DB, Chroma 벡터DB 저장소)
+backend/*.db
+backend/*.db-journal
+backend/chroma_data/
+backend/logs/
+
+# Paragraphy frontend
+frontend/node_modules/
+frontend/dist/
+frontend/screenshots/
+
 # Flask stuff:
 instance/
 .webassets-cache
