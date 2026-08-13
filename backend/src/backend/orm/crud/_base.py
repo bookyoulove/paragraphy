@@ -3,12 +3,13 @@ from typing import Annotated, get_args, get_origin
 from uuid import UUID
 
 from fastapi import Depends
+from pydantic import BaseModel
 from sqlmodel import Session, SQLModel, select
 
 from backend.orm.session import get_session
 
 
-class CRUDBase[M: SQLModel, C: SQLModel, U: SQLModel]:
+class CRUDBase[M: SQLModel, C: SQLModel, U: BaseModel]:
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self.model = self._get_model_type()

@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from backend.orm.session import create_db_and_table
-from backend.routers import auth
+from backend.routers import auth, problems, session
 
 
 @asynccontextmanager
@@ -15,6 +15,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth.router)
+app.include_router(problems.router)
+app.include_router(session.router)
 
 
 

@@ -40,6 +40,7 @@ dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "shared" },
     { name = "sqlmodel" },
     { name = "tzdata" },
 ]
@@ -49,6 +50,7 @@ requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "shared", editable = "../shared" },
     { name = "sqlmodel", specifier = ">=0.0.39" },
     { name = "tzdata", specifier = ">=2026.3" },
 ]
@@ -645,6 +647,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/ad/8a/b2eec40df8a67bf07
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/e2/70692eba662037cddf93391cbbf98297159f3038612e9b9a8129e16feb7a/sentry_sdk-2.67.1-py3-none-any.whl", hash = "sha256:a66bfbce1cd8a93c51c369d642ad85b46253ea7a6f7938141315b83e2823cda5", size = 515591, upload-time = "2026-08-10T13:05:54.213Z" },
 ]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+source = { editable = "../shared" }
+dependencies = [
+    { name = "sqlmodel" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "sqlmodel", specifier = ">=0.0.39" }]
 
 [[package]]
 name = "shellingham"

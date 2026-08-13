@@ -1,7 +1,8 @@
 from sqlmodel import select
 
 from backend.orm.crud._base import CRUDBase
-from backend.orm.models import UserCreate, Users, UserUpdate
+from backend.orm.models import Users
+from backend.schema.user import UserCreate, UserUpdate
 
 
 class CRUDUser(CRUDBase[Users, UserCreate, UserUpdate]):
