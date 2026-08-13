@@ -5,12 +5,14 @@
 #   ./manage.sh backend  {start|stop|restart|status}
 #   ./manage.sh frontend {start|stop|restart|status}
 #   ./manage.sh all      {start|stop|restart|status}
+#   ./manage.sh watchdog {start|stop|restart|status}
 #
 # 예시:
 #   ./manage.sh backend stop      # 백엔드만 끄기
 #   ./manage.sh backend start     # 백엔드만 켜기
 #   ./manage.sh all restart       # 백엔드+프론트 둘 다 재시작
 #   ./manage.sh all status        # 둘 다 상태 확인
+#   ./manage.sh watchdog start    # 상시 구동 워치독 시작 (죽으면 자동 재시작)
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -22,6 +24,8 @@ BACKEND_PID_FILE="$PID_DIR/backend.pid"
 BACKEND_LOG_FILE="$PID_DIR/backend.log"
 FRONTEND_PID_FILE="$PID_DIR/frontend.pid"
 FRONTEND_LOG_FILE="$PID_DIR/frontend.log"
+WATCHDOG_PID_FILE="$PID_DIR/watchdog.pid"
+WATCHDOG_LOG_FILE="$PID_DIR/watchdog.log"
 
 is_running() {
   local pid_file="$1"
@@ -86,6 +90,27 @@ start_frontend() {
   fi
 }
 
+start_watchdog() {
+  if is_running "$WATCHDOG_PID_FILE"; then
+    echo "watchdog 이미 실행 중 (PID $(cat "$WATCHDOG_PID_FILE"))"
+    return
+  fi
+  nohup ./watchdog.sh \
+    > /dev/null 2>&1 &
+  disown
+  echo $! > "$WATCHDOG_PID_FILE"
+  sleep 1
+  if is_running "$WATCHDOG_PID_FILE"; then
+    echo "watchdog 시작됨 (PID $(cat "$WATCHDOG_PID_FILE")) — 30초마다 backend/frontend 상태를 확인해 죽어 있으면 자동으로 재시작합니다."
+    echo "로그: $WATCHDOG_LOG_FILE"
+    start_backend
+    start_frontend
+  else
+    echo "watchdog 시작 실패." >&2
+    exit 1
+  fi
+}
+
 status_of() {
   local pid_file="$1"
   local name="$2"
@@ -98,7 +123,7 @@ status_of() {
 }
 
 usage() {
-  echo "사용법: ./manage.sh {backend|frontend|all} {start|stop|restart|status}" >&2
+  echo "사용법: ./manage.sh {backend|frontend|all|watchdog} {start|stop|restart|status}" >&2
   exit 1
 }
 
@@ -118,6 +143,10 @@ run_one() {
     frontend-stop)    stop_pid_file "$FRONTEND_PID_FILE" "frontend" ;;
     frontend-restart) stop_pid_file "$FRONTEND_PID_FILE" "frontend"; start_frontend ;;
     frontend-status)  status_of "$FRONTEND_PID_FILE" "frontend" 3000 ;;
+    watchdog-start)   start_watchdog ;;
+    watchdog-stop)    stop_pid_file "$WATCHDOG_PID_FILE" "watchdog" ;;
+    watchdog-restart) stop_pid_file "$WATCHDOG_PID_FILE" "watchdog"; start_watchdog ;;
+    watchdog-status)  status_of "$WATCHDOG_PID_FILE" "watchdog" "-" ;;
     *) usage ;;
   esac
 }
