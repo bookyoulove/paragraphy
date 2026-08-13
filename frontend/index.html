@@ -7,7 +7,22 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="loginOverlay" class="login-overlay">
+    <div id="landingView" class="landing-view">
+      <div class="landing-inner">
+        <div class="landing-badge">P</div>
+        <h1 class="landing-title">
+          실제 대학 채점 기준 그대로,<br />
+          AI가 채점하고 설명해드립니다
+        </h1>
+        <p class="landing-sub">
+          한양대 · 경희대 · 국립국어원 공식 채점기준을 그대로 반영해 답안을 채점하고,<br />
+          무엇을 어떻게 고쳐야 할지 근거와 함께 알려드립니다.
+        </p>
+        <button id="btnLandingStart" class="landing-cta">Paragraphy 시작하기</button>
+      </div>
+    </div>
+
+    <div id="loginOverlay" class="login-overlay" hidden>
       <div class="login-card">
         <div class="brand-block">
           <div class="brand-badge">P</div>
@@ -20,7 +35,7 @@
       </div>
     </div>
 
-    <div class="page-wrap">
+    <div id="pageWrap" class="page-wrap" hidden>
       <header class="topbar">
         <div class="brand-block">
           <div class="brand-badge">P</div>

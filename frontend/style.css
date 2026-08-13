@@ -98,6 +98,70 @@ button, input, textarea {
   color: #fff;
 }
 
+.landing-view {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: radial-gradient(circle at 50% 0%, #2a3f73 0%, #16203f 55%, #0f1526 100%);
+  overflow-y: auto;
+}
+
+.landing-view[hidden] { display: none; }
+
+.landing-inner {
+  max-width: 640px;
+  text-align: center;
+}
+
+.landing-badge {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 28px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #dfe8ff, #b7c8ff);
+  color: #1d2d5a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 34px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+}
+
+.landing-title {
+  margin: 0 0 20px;
+  font-size: 34px;
+  line-height: 1.4;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.landing-sub {
+  margin: 0 0 32px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.72);
+}
+
+.landing-cta {
+  border: none;
+  border-radius: 10px;
+  padding: 15px 36px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #3a56a8, #1d2d5a);
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(29, 45, 90, 0.5);
+}
+
+.landing-cta:hover { filter: brightness(1.08); }
+
 .login-overlay {
   position: fixed;
   inset: 0;
