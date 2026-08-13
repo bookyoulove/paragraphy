@@ -467,6 +467,14 @@ button, input, textarea {
   gap: 8px;
 }
 
+.save-status {
+  flex: 1;
+  text-align: left;
+  font-size: 12px;
+  color: #1f7a4d;
+  font-weight: 700;
+}
+
 .primary-btn {
   background: var(--navy);
   color: white;
@@ -739,6 +747,25 @@ button, input, textarea {
   line-height: 1.7;
   color: var(--text);
   white-space: pre-wrap;
+}
+
+.chat-typing-msg {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.typing-dots span {
+  display: inline-block;
+  animation: chat-typing-bounce 1.2s infinite;
+  animation-fill-mode: both;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes chat-typing-bounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
 }
 
 .chat-input-wrap { display: flex; gap: 8px; }
