@@ -170,7 +170,7 @@ button, input, textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 220px;
+  max-height: 340px;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -229,34 +229,107 @@ button, input, textarea {
 
 .main-layout {
   padding: 18px;
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 18px;
-  align-items: start;
 }
 
-.left-panel, .right-panel {
+.control-bar {
+  position: relative;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 16px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: 0 2px 6px var(--shadow);
+  padding: 12px 16px;
+  margin-bottom: 18px;
 }
 
-.left-panel { padding: 16px; }
+.control-bar-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-.problem-picker {
-  border: 1px solid var(--line);
-  background: var(--panel-strong);
+.current-problem-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.control-bar .session-status {
+  margin-top: 0;
+}
+
+.empty-state {
+  background: var(--panel);
+  border: 1px dashed var(--line);
   border-radius: 10px;
-  padding: 14px 16px 16px;
+  padding: 60px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-.picker-header {
+.empty-state[hidden] { display: none; }
+
+.empty-state-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.empty-state-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+
+.work-columns[hidden] { display: none; }
+
+.work-columns {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.column-slot { min-width: 0; }
+
+.picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.picker-modal[hidden] { display: none; }
+
+.picker-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 17, 21, 0.55);
+}
+
+.picker-modal-card {
+  position: relative;
+  width: min(640px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px 22px 24px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+}
+
+.picker-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 10px;
+}
+
+.picker-list-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
 .label-title { font-size: 14px; font-weight: 700; }
@@ -288,11 +361,11 @@ button, input, textarea {
 }
 
 .problem-box {
-  background: var(--panel-light);
+  background: var(--panel);
   border: 1px solid var(--line);
+  box-shadow: 0 2px 6px var(--shadow);
   border-radius: 10px;
   padding: 18px 18px 16px;
-  margin-top: 16px;
 }
 
 .problem-header,
@@ -364,9 +437,9 @@ button, input, textarea {
 }
 
 .answer-box {
-  margin-top: 18px;
   border: 1px solid var(--line);
-  background: var(--panel-light);
+  background: var(--panel);
+  box-shadow: 0 2px 6px var(--shadow);
   border-radius: 10px;
   padding: 12px 16px 14px;
 }
@@ -451,6 +524,10 @@ button, input, textarea {
 }
 
 .right-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px var(--shadow);
   padding: 14px 16px 16px;
   position: sticky;
   top: 18px;
@@ -710,6 +787,7 @@ button, input, textarea {
 }
 
 @media (max-width: 980px) {
-  .main-layout { grid-template-columns: 1fr; }
+  .work-columns { grid-template-columns: 1fr; }
   .right-panel { position: static; }
+  .control-bar { flex-wrap: wrap; }
 }

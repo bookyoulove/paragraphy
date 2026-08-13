@@ -220,3 +220,4 @@ __marimo__/
 # Shell config files
 .bashrc
 bashrc
+.run/
