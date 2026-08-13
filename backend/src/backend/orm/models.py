@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, override
+from typing import Any, Optional, override
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -38,6 +38,12 @@ class PydanticJSON[T](TypeDecorator[T]):
         return self.adapter.validate_python(value)
 
 
+class TimeStampMixin(SQLModel):
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
+    )
+
+
 """
 USERS {
     uuid id PK
@@ -47,15 +53,22 @@ USERS {
 """
 
 
-class Users(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class UserBase(SQLModel):
     user_name: str
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
-    )
 
-    analysis_sessions: list[AnalysisSessions] = Relationship(back_populates="user")
-    problems: list[Problems] = Relationship(back_populates="user")
+
+class UserCreate(UserBase): ...
+
+
+class UserUpdate(SQLModel):
+    user_name: str | None = None
+
+
+class Users(UserBase, TimeStampMixin, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
+    analysis_sessions: list["AnalysisSessions"] = Relationship(back_populates="user")
+    problems: list["Problems"] = Relationship(back_populates="user")
 
 
 """
@@ -72,8 +85,7 @@ PROBLEMS {
 """
 
 
-class Problems(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class ProblemBase(SQLModel):
     title: str = Field(max_length=256)
     created_by_user: bool
     user_id: UUID | None = Field(None, foreign_key="users.id")
@@ -82,9 +94,22 @@ class Problems(SQLModel, table=True):
     content: str
     model_answer: str | None = None
 
+
+class ProblemCreate(ProblemBase): ...
+
+
+class ProblemUpdate(SQLModel):
+    title: str | None = None
+    content: str | None = None
+    model_answer: str | None = None
+
+
+class Problems(ProblemBase, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
     user: Users | None = Relationship(back_populates="problems")
-    rubrics: list[Rubrics] = Relationship(back_populates="problem")
-    analysis_sessions: list[AnalysisSessions] = Relationship(back_populates="problem")
+    rubrics: list["Rubrics"] = Relationship(back_populates="problem")
+    analysis_sessions: list["AnalysisSessions"] = Relationship(back_populates="problem")
 
 
 """
@@ -97,11 +122,22 @@ RUBRICS {
 """
 
 
-class Rubrics(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class RubricBase(SQLModel):
     problem_id: UUID = Field(foreign_key="problems.id")
     criteria: str = Field(max_length=256)
     description: str | None = None
+
+
+class RubricCreate(RubricBase): ...
+
+
+class RubricUpdate(SQLModel):
+    criteria: str | None = None
+    description: str | None = None
+
+
+class Rubrics(RubricBase, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     problem: Problems = Relationship(back_populates="rubrics")
 
@@ -116,17 +152,23 @@ ANALYSIS_SESSIONS {
 """
 
 
-class AnalysisSessions(SQLModel, table=True):
-    __tablename__ = "analysis_sessions"  # type: ignore
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class AnalysisSessionBase(SQLModel):
     user_id: UUID = Field(foreign_key="users.id")
     problem_id: UUID = Field(foreign_key="problems.id")
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
-    )
+
+
+class AnalysisSessionCreate(AnalysisSessionBase): ...
+
+
+class AnalysisSessionUpdate(SQLModel): ...
+
+
+class AnalysisSessions(AnalysisSessionBase, TimeStampMixin, table=True):
+    __tablename__ = "analysis_sessions"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     user: Users = Relationship(back_populates="analysis_sessions")
-    user_answers: list[UserAnswers] = Relationship(back_populates="analysis_session")
+    user_answers: list["UserAnswers"] = Relationship(back_populates="analysis_session")
     problem: Problems = Relationship(back_populates="analysis_sessions")
 
 
@@ -145,15 +187,28 @@ class Status(StrEnum):
     SUBMITTED = "submitted"
 
 
-class UserAnswers(SQLModel, table=True):
-    __tablename__ = "user_answers"  # type: ignore
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class UserAnswerBase(SQLModel):
     session_id: UUID = Field(foreign_key="analysis_sessions.id")
     user_answer: str
     status: Status
 
+
+class UserAnswerCreate(UserAnswerBase): ...
+
+
+class UserAnswerUpdate(SQLModel):
+    user_answer: str | None = None
+    status: Status | None = None
+
+
+class UserAnswers(UserAnswerBase, table=True):
+    __tablename__ = "user_answers"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+
     analysis_session: AnalysisSessions = Relationship(back_populates="user_answers")
-    analysis_result: AnalysisResults | None = Relationship(back_populates="user_answer")
+    analysis_result: Optional["AnalysisResults"] = Relationship(
+        back_populates="user_answer"
+    )
 
 
 """
@@ -177,9 +232,7 @@ class CriteriaScore(SQLModel):
     improvement: str
 
 
-class AnalysisResults(SQLModel, table=True):
-    __tablename__ = "analysis_results"  # type: ignore
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class AnalysisResultBase(SQLModel):
     answer_id: UUID = Field(foreign_key="user_answers.id")
     grammar_result: GrammarResult = Field(sa_column=Column(PydanticJSON(GrammarResult)))
     criteria_scores: list[CriteriaScore] = Field(
@@ -187,12 +240,24 @@ class AnalysisResults(SQLModel, table=True):
     )
     overall_comment: str | None
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
-    )
+
+class AnalysisResultCreate(AnalysisResultBase): ...
+
+
+class AnalysisResultUpdate(SQLModel):
+    grammar_result: GrammarResult | None = None
+    criteria_scores: list[CriteriaScore] | None = None
+    overall_comment: str | None = None
+
+
+class AnalysisResults(AnalysisResultBase, TimeStampMixin, table=True):
+    __tablename__ = "analysis_results"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     user_answer: UserAnswers = Relationship(back_populates="analysis_result")
-    chat_session: ChatSessions | None = Relationship(back_populates="analysis_result")
+    chat_session: Optional["ChatSessions"] = Relationship(
+        back_populates="analysis_result"
+    )
 
 
 """
@@ -204,16 +269,22 @@ CHAT_SESSIONS {
 """
 
 
-class ChatSessions(SQLModel, table=True):
+class ChatSessionBase(SQLModel):
+    result_id: UUID = Field(foreign_key="analysis_results.id")
+
+
+class ChatSessionCreate(ChatSessionBase): ...
+
+
+class ChatSessionsUpdate(SQLModel): ...
+
+
+class ChatSessions(ChatSessionBase, TimeStampMixin, table=True):
     __tablename__ = "chat_sessions"  # type: ignore
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    result_id: UUID = Field(foreign_key="analysis_results.id")
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
-    )
 
     analysis_result: AnalysisResults = Relationship(back_populates="chat_session")
-    chat_messages: list[ChatMessages] = Relationship(back_populates="chat_session")
+    chat_messages: list["ChatMessages"] = Relationship(back_populates="chat_session")
 
 
 """
@@ -227,14 +298,22 @@ CHAT_MESSAGES {
 """
 
 
-class ChatMessages(SQLModel, table=True):
-    __tablename__ = "chat_messages"  # type: ignore
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class ChatMessageBase(SQLModel):
     chat_id: UUID = Field(foreign_key="chat_sessions.id")
     role: str = Field(max_length=10)
     content: str
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
-    )
+
+
+class ChatMessageCreate(ChatMessageBase): ...
+
+
+class ChatMessageUpdate(SQLModel):
+    role: str | None = None
+    content: str | None = None
+
+
+class ChatMessages(ChatMessageBase, TimeStampMixin, table=True):
+    __tablename__ = "chat_messages"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
 
     chat_session: ChatSessions = Relationship(back_populates="chat_messages")
