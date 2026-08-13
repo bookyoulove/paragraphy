@@ -287,9 +287,9 @@ button { cursor: pointer; }
   transition: width 0.22s ease;
 }
 
-.workspace.problem-collapsed .problem-drawer { width: 0; }
+.workspace.problem-collapsed .problem-drawer { width: 0 !important; }
 
-.problem-drawer-inner { width: 300px; height: 100%; overflow-y: auto; padding: 18px; }
+.problem-drawer-inner { width: 100%; height: 100%; overflow-y: auto; padding: 18px; }
 
 .pd-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
 .pd-meta { font-size: 11px; color: var(--ink-faint); margin-bottom: 14px; }
@@ -331,8 +331,21 @@ button { cursor: pointer; }
 .workspace.problem-collapsed .drawer-toggle.left svg { transform: rotate(180deg); }
 .workspace.drawer-collapsed .drawer-toggle.right svg { transform: rotate(180deg); }
 
+/* 좌우 패널 드래그 리사이즈 핸들 — 접혔을 땐 리사이즈할 대상이 없으므로 숨긴다 */
+.resize-handle {
+  flex-shrink: 0;
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.resize-handle:hover, .resize-handle.dragging { background: var(--indigo); }
+.workspace.problem-collapsed .resize-handle.left { display: none; }
+.workspace.drawer-collapsed .resize-handle.right { display: none; }
+
 /* Canvas */
-.canvas-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.canvas-pane { flex: 1; min-width: 380px; display: flex; flex-direction: column; }
 
 .canvas-empty[hidden] { display: none; }
 .canvas-empty {
@@ -508,9 +521,9 @@ button { cursor: pointer; }
   transition: width 0.22s ease;
 }
 
-.workspace.drawer-collapsed .result-drawer { width: 0; }
+.workspace.drawer-collapsed .result-drawer { width: 0 !important; }
 
-.drawer-tabs { flex-shrink: 0; display: flex; gap: 2px; padding: 10px 14px 0; width: 380px; }
+.drawer-tabs { flex-shrink: 0; display: flex; gap: 2px; padding: 10px 14px 0; width: 100%; }
 
 .dtab {
   flex: 1;
@@ -526,7 +539,7 @@ button { cursor: pointer; }
 
 .dtab.active { color: var(--indigo); border-color: var(--indigo); }
 
-.drawer-panels { flex: 1; min-height: 0; overflow-y: auto; width: 380px; padding: 16px 18px 24px; }
+.drawer-panels { flex: 1; min-height: 0; overflow-y: auto; width: 100%; padding: 16px 18px 24px; }
 
 .dpanel { display: none; }
 .dpanel.active { display: block; }
