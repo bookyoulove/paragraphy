@@ -253,6 +253,64 @@ function renderScoreResult(result) {
   suggestionList.innerHTML = (result.suggestions || []).map((s) => `<li>${escapeHtml(s)}</li>`).join('') || '<li>추가 제안이 없습니다.</li>';
 }
 
+function renderCompareTable(results) {
+  const section = document.getElementById('compareSection');
+  const table = document.getElementById('compareTable');
+  if (!results || results.length < 2) {
+    section.hidden = true;
+    table.innerHTML = '';
+    return;
+  }
+  section.hidden = false;
+
+  const latest = results[results.length - 1];
+  const labels = (latest.scores || []).map((s) => s.label);
+  const headerCells = results.map((r) => `<th>${r.attempt}회차</th>`).join('');
+
+  let rows = `
+    <tr class="compare-total">
+      <td>총점</td>
+      ${results
+        .map((r, idx) => {
+          const prev = idx > 0 ? results[idx - 1].score : null;
+          const cls = prev === null ? '' : r.score > prev ? 'diff-up' : r.score < prev ? 'diff-down' : '';
+          const arrow = prev === null ? '' : r.score > prev ? ' ▲' : r.score < prev ? ' ▼' : '';
+          return `<td class="${cls}">${r.score} / ${r.total_max}${arrow}</td>`;
+        })
+        .join('')}
+    </tr>
+  `;
+
+  labels.forEach((label) => {
+    const cells = results
+      .map((r) => {
+        const item = (r.scores || []).find((s) => s.label === label);
+        return `<td>${item ? `${item.value} / ${item.max_score}` : '—'}</td>`;
+      })
+      .join('');
+    rows += `<tr><td>${escapeHtml(label)}</td>${cells}</tr>`;
+  });
+
+  rows += `
+    <tr>
+      <td>첨삭 오류 건수</td>
+      ${results.map((r) => `<td>${r.grammar_error_count}건</td>`).join('')}
+    </tr>
+  `;
+
+  table.innerHTML = `<thead><tr><th>구분</th>${headerCells}</tr></thead><tbody>${rows}</tbody>`;
+}
+
+async function loadCompareTable() {
+  if (!currentSession) return;
+  try {
+    const results = await fetchApi(`/api/sessions/${currentSession.id}/results`);
+    renderCompareTable(results);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function tagClassForType(type) {
   if (type.includes('비약') || type.includes('논리') || type.includes('단정')) return 'neutral';
   if (type.includes('어색') || type.includes('표현') || type.includes('중복')) return 'warning';
@@ -323,6 +381,21 @@ async function loadProblems() {
   }
 }
 
+function resetResultPanels() {
+  document.getElementById('gradeEmpty').hidden = false;
+  document.getElementById('gradeContent').hidden = true;
+  document.getElementById('compareSection').hidden = true;
+  document.getElementById('compareTable').innerHTML = '';
+  currentErrors = [];
+  rebuildHighlight();
+  document.getElementById('proofCount').textContent = '';
+  document.getElementById('proofList').innerHTML =
+    '<div class="proof-box"><div class="proof-tag">정보</div><div class="proof-text">채점 후 문법 및 첨삭 항목이 표시됩니다.</div></div>';
+  renderChatMessages([
+    { role: 'assistant', text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.' },
+  ]);
+}
+
 async function createSession() {
   if (!currentUser) {
     alert('먼저 로그인하세요.');
@@ -339,6 +412,7 @@ async function createSession() {
       body: JSON.stringify({ user_id: currentUser.id, problem_id: selectedProblem.id, problem_source: selectedProblem.source }),
     });
     renderSessionStatus();
+    resetResultPanels();
   } catch (err) {
     console.error(err);
     alert('세션 생성에 실패했습니다. 콘솔을 확인하세요.');
@@ -384,6 +458,7 @@ async function gradeAnswer() {
     });
     renderScoreResult(result);
     renderProofItems(result);
+    await loadCompareTable();
     document.querySelector('.tab[data-tab="grade"]').click();
   } catch (err) {
     console.error(err);

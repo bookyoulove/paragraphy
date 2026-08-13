@@ -61,6 +61,15 @@ def _grading_system_prompt(problem: Optional[Problem]) -> str:
     )
 
 
+def sum_scores(scores: Optional[List[Dict[str, Any]]]) -> tuple[int, int]:
+    """저장된 scores 배열에서 (총점, 총배점)을 합산한다. 채점 비교표 등에서 재사용."""
+    total_value, total_max = 0, 0
+    for item in scores or []:
+        total_value += int(item.get("value", 0) or 0)
+        total_max += int(item.get("max_score", 0) or 0)
+    return total_value, total_max or 100
+
+
 def _normalize_grading_result(data: Dict[str, Any]) -> Dict[str, Any]:
     scores = data.get("scores") or []
     normalized_scores = []

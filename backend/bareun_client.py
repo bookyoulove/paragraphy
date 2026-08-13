@@ -46,8 +46,10 @@ def check_spelling(text: str) -> List[Dict[str, Any]]:
     Bareun 연동이 불가능하면(키 미설정, 네트워크 오류 등) 조용히 빈 목록을 반환한다 —
     Grading Agent가 LLM 자체 판단으로 이 공백을 채운다.
     """
+    if not text.strip():
+        return []
     corrector = _get_corrector()
-    if corrector is None or not text.strip():
+    if corrector is None:
         return []
 
     try:
