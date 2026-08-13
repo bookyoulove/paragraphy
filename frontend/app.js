@@ -364,6 +364,14 @@ function renderScoreResult(result) {
   suggestionList.innerHTML = (result.suggestions || []).map((s) => `<li>${escapeHtml(s)}</li>`).join('') || '<li>추가 제안이 없습니다.</li>';
 }
 
+function formatAttemptDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function renderCompareTable(results) {
   const section = document.getElementById('compareSection');
   const table = document.getElementById('compareTable');
@@ -376,7 +384,9 @@ function renderCompareTable(results) {
 
   const latest = results[results.length - 1];
   const labels = (latest.scores || []).map((s) => s.label);
-  const headerCells = results.map((r) => `<th>${r.attempt}회차</th>`).join('');
+  const headerCells = results
+    .map((r) => `<th>${r.attempt}회차<span class="compare-th-date">(${formatAttemptDate(r.created_at)} 작성)</span></th>`)
+    .join('');
 
   let rows = `
     <tr class="compare-total">

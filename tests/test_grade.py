@@ -31,10 +31,12 @@ def test_grade_computes_score_from_llm_json(client, fake_claude):
 
     assert res.status_code == 200
     body = res.json()
-    # 4/5 + 3/5 = 7/10
-    assert body["score"] == 7
-    assert body["total_max"] == 10
-    assert len(body["scores"]) == 2
+    # 4/5 + 3/5 = 7/10, + 시스템이 자동 추가하는 "문법과 어휘" 5/5 (Bareun 오류 0건 → 만점)
+    assert body["score"] == 12
+    assert body["total_max"] == 15
+    assert len(body["scores"]) == 3
+    assert body["scores"][-1]["label"] == "문법과 어휘 (맞춤법·어법 정확성)"
+    assert body["scores"][-1]["value"] == 5
     assert body["commentary"] == "테스트용 총평입니다."
     assert body["suggestions"] == ["첫 번째 제안", "두 번째 제안"]
     assert len(body["grammar_errors"]) == 1
@@ -57,6 +59,7 @@ def test_grade_ignores_malformed_score_items(client, fake_claude):
     res = client.post("/api/grade", json={"session_id": session["id"], "source": "test"})
     assert res.status_code == 200
     body = res.json()
-    assert len(body["scores"]) == 1
-    assert body["score"] == 3
-    assert body["total_max"] == 5
+    # 깨진 항목은 무시, 정상 항목 3/5 + 자동 추가 "문법과 어휘" 5/5 = 2개 항목
+    assert len(body["scores"]) == 2
+    assert body["score"] == 8
+    assert body["total_max"] == 10

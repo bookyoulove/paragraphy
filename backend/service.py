@@ -8,7 +8,41 @@ from .bareun_client import check_spelling
 from .llm_client import ClaudeClient
 from .models import AnalysisSession, ChatMessage, Problem
 from .rubrics import NIKL_CRITERIA
+from .seed_data import GRAMMAR_CRITERION_LABEL
 from .tool_executor import TOOLS, ToolExecutor
+
+# "문법과 어휘" 채점 준거는 LLM의 주관적 판단이 아니라 Bareun 어문규정 검사 결과로만
+# 결정한다 (출처 무관 공통 원칙). 라벨에 아래 키워드가 하나라도 있으면 같은 준거로 보고
+# Bareun 채점 값으로 덮어쓰며, 채점 기준에 해당 준거가 아예 없었다면 새로 추가한다.
+_GRAMMAR_LABEL_KEYWORDS = ("어문", "맞춤법", "국어정서법", "문법과 어휘")
+
+
+def _bareun_grammar_score(bareun_errors: List[Dict[str, Any]]) -> Dict[str, Any]:
+    count = len(bareun_errors)
+    if count == 0:
+        value = 5
+    elif count == 1:
+        value = 4
+    elif count <= 3:
+        value = 3
+    elif count <= 5:
+        value = 2
+    else:
+        value = 1
+    return {"label": GRAMMAR_CRITERION_LABEL, "value": value, "max_score": 5}
+
+
+def _apply_grammar_score(result: Dict[str, Any], bareun_errors: List[Dict[str, Any]]) -> None:
+    grammar_item = _bareun_grammar_score(bareun_errors)
+    for item in result["scores"]:
+        if any(k in item["label"] for k in _GRAMMAR_LABEL_KEYWORDS):
+            item["value"] = grammar_item["value"]
+            item["max_score"] = grammar_item["max_score"]
+            break
+    else:
+        result["scores"].append(grammar_item)
+    result["score"] = sum(item["value"] for item in result["scores"])
+    result["total_max"] = sum(item["max_score"] for item in result["scores"])
 
 # get_feedback은 매 턴 미리 조회해 시스템 프롬프트에 주입하므로, 굳이 도구로
 # 다시 노출하지 않는다 (LLM 왕복 1회를 줄여 챗봇 응답 속도를 개선하기 위함).
@@ -40,6 +74,9 @@ def _grading_system_prompt(problem: Optional[Problem]) -> str:
         "원문에 다른 배점(예: 20점, 50점, 100점 만점 등)이 적혀 있더라도, 그 항목이 '무엇을 평가하는지'"
         "만 그대로 가져오고 실제 부여하는 점수(value)와 만점(max_score)은 반드시 1~5점 척도로 통일하라 "
         "(max_score는 모든 항목에서 항상 5).\n"
+        f"참고: 채점 기준에 '{GRAMMAR_CRITERION_LABEL}' 또는 이와 유사한 어문규정/맞춤법 관련 준거가 "
+        "있다면, 그 항목의 값은 당신이 추정하지 않아도 된다 (시스템이 Bareun 검사 결과로 자동 채점 "
+        "후 덮어쓴다). scores 배열에는 그래도 label만 그대로 포함해 응답하라.\n"
     )
 
     if problem is None:
@@ -135,6 +172,7 @@ async def grade_answer(db: Session, session: AnalysisSession, text: str) -> Dict
         asyncio.to_thread(check_spelling, text),
     )
     result = _normalize_grading_result(data)
+    _apply_grammar_score(result, bareun_errors)
     result["grammar_errors"] = (bareun_errors + result["grammar_errors"])[:8]
     return result
 
@@ -149,7 +187,10 @@ RUBRIC_AGENT_SYSTEM_PROMPT = (
     "총점은 합계를 100점으로 맞추지 말고 '항목 수 × 5점'이 되도록 하십시오.\n"
     "3. 각 항목마다 '항목명 (1~5점) — 무엇을 평가하는지 1~2문장 설명' 형식으로 작성하십시오.\n"
     "4. 문제에 제시문·지문이 있다면 그 내용을 반영해 항목을 구체화하십시오.\n"
-    "5. 다른 설명, 인사말, 코드펜스 없이 채점 기준표 텍스트만 출력하십시오."
+    f"5. 매우 중요: 항목 중 하나는 반드시 '{GRAMMAR_CRITERION_LABEL} (1~5점)'이어야 합니다. 이 항목은 "
+    "채점 시 시스템이 Bareun 어문규정 검사 결과로 자동 채점하므로, 설명은 '맞춤법·띄어쓰기 등 어문 "
+    "규정 준수와 어휘 사용의 정확성을 평가' 정도로만 간단히 작성하십시오.\n"
+    "6. 다른 설명, 인사말, 코드펜스 없이 채점 기준표 텍스트만 출력하십시오."
 )
 
 

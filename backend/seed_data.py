@@ -23,13 +23,31 @@ def _read(name: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
+# 대학 공식 채점 기준(한양대/경희대)에는 어문 규정 오류에 대한 별도 배점 항목이 없다
+# (원고지 사용법/어문 규정은 "채점위원 재량 감점" 정도로만 언급됨). 국립국어원 기준에는
+# 이미 "어문 규범과 관습" 준거가 있으므로 이 노트를 붙이지 않는다.
+GRAMMAR_CRITERION_LABEL = "문법과 어휘 (맞춤법·어법 정확성)"
+GRAMMAR_CRITERION_NOTE = (
+    "\n\n[플랫폼 공통 채점 항목]\n"
+    f"- {GRAMMAR_CRITERION_LABEL} (1~5점): 위 공식 채점 기준에는 어문 규정 오류에 대한 별도 배점이 "
+    "없어, 본 플랫폼이 모든 문제에 공통으로 적용하는 항목입니다. Bareun 어문규정 검사 결과를 "
+    "기반으로 자동 채점됩니다."
+)
+
+
+def _with_grammar_criterion(rubric_text: str) -> str:
+    if not rubric_text or GRAMMAR_CRITERION_LABEL in rubric_text:
+        return rubric_text
+    return rubric_text + GRAMMAR_CRITERION_NOTE
+
+
 def build_seed_problems() -> list[dict]:
     problems = [
         dict(
             title="한양대 상경 논술 2025",
             source="한양대",
             content=_read("한양대 상경 2025 문제.txt"),
-            rubric=_read("한양대 상경 2025 평가기준.md"),
+            rubric=_with_grammar_criterion(_read("한양대 상경 2025 평가기준.md")),
             model_answer=_read("한양대 상경 2025 담안.txt"),
             meta={"school": "한양대", "exam_type": "상경계열", "year": "2025", "category": "대학논술"},
         ),
@@ -37,7 +55,7 @@ def build_seed_problems() -> list[dict]:
             title="한양대 상경 논술 2026",
             source="한양대",
             content=_read("한양대 상경 2026 문제.txt"),
-            rubric=_read("한양대 상경 2026 평가기준.md"),
+            rubric=_with_grammar_criterion(_read("한양대 상경 2026 평가기준.md")),
             model_answer=_read("한양대 상경 2026 담안.txt"),
             meta={"school": "한양대", "exam_type": "상경계열", "year": "2026", "category": "대학논술"},
         ),
@@ -45,7 +63,7 @@ def build_seed_problems() -> list[dict]:
             title="경희대 사회계 논술 2025",
             source="경희대",
             content=_read("2025_경희대논술_문제와_지문.md"),
-            rubric=_read("2025_경희대논술_채점기준과_해설.md"),
+            rubric=_with_grammar_criterion(_read("2025_경희대논술_채점기준과_해설.md")),
             model_answer=None,
             meta={"school": "경희대", "exam_type": "사회계열", "year": "2025", "category": "대학논술"},
         ),
@@ -53,7 +71,7 @@ def build_seed_problems() -> list[dict]:
             title="경희대 사회계 논술 2026",
             source="경희대",
             content=_read("2026_경희대논술_문제와_지문.md"),
-            rubric=_read("2026_경희대논술_채점기준과_해설.md"),
+            rubric=_with_grammar_criterion(_read("2026_경희대논술_채점기준과_해설.md")),
             model_answer=None,
             meta={"school": "경희대", "exam_type": "인문계열", "year": "2026", "category": "대학논술"},
         ),

@@ -62,26 +62,18 @@ button, input, textarea {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: linear-gradient(150deg, #2c4180 0%, #16203f 75%);
+  background: #16203f;
   box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-family: 'Alex Brush', cursive;
-  font-weight: 400;
-  font-size: 22px;
-  line-height: 1;
 }
 
-.brand-badge span {
-  display: inline-block;
-  transform: translate(2px, -1px);
-  background: linear-gradient(180deg, #ffffff 0%, #dbe3f7 55%, #a9b9e2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 1px 0 rgba(255,255,255,0.6)) drop-shadow(0 1.5px 2px rgba(0,0,0,0.5));
+.brand-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .brand-text {
@@ -140,26 +132,18 @@ button, input, textarea {
   height: 72px;
   margin: 0 auto 28px;
   border-radius: 20px;
-  background: linear-gradient(150deg, #2c4180 0%, #16203f 75%);
+  background: #16203f;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-family: 'Alex Brush', cursive;
-  font-weight: 400;
-  font-size: 46px;
-  line-height: 1;
   box-shadow: inset 0 2px 2px rgba(255,255,255,0.15), 0 12px 30px rgba(0,0,0,0.35);
 }
 
-.landing-badge span {
-  display: inline-block;
-  transform: translate(0, -1px);
-  background: linear-gradient(180deg, #ffffff 0%, #dbe3f7 55%, #a9b9e2 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 0 rgba(255,255,255,0.6)) drop-shadow(0 3px 4px rgba(0,0,0,0.5));
+.landing-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .landing-title {
@@ -918,6 +902,14 @@ button, input, textarea {
 .compare-table thead th {
   color: var(--muted);
   font-weight: 700;
+}
+
+.compare-th-date {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .compare-table tr.compare-total td {
