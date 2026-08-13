@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
+from .bareun_client import check_spelling
 from .llm_client import ClaudeClient
 from .models import AnalysisSession, ChatMessage, Problem
 from .rubrics import NIKL_CRITERIA
@@ -15,11 +16,11 @@ GRADING_OUTPUT_SPEC = """
   "commentary": "총평 2문장 이내",
   "suggestions": ["수정 방향 1", "수정 방향 2", "수정 방향 3"],
   "grammar_errors": [
-    {"type": "띄어쓰기|어색한 표현|논리 비약|맞춤법 등 분류", "before": "답안 원문에 실제로 등장하는 부분 문자열", "after": "수정 제안", "note": "근거 설명 (가능하면 어문 규정 조항 등 포함)"}
+    {"type": "어색한 표현|논리 비약|중복 표현 등 분류", "before": "답안 원문에 실제로 등장하는 부분 문자열", "after": "수정 제안", "note": "근거 설명"}
   ]
 }
 - "before" 값은 반드시 학생 답안 원문에 그대로 등장하는 부분 문자열이어야 한다 (하이라이트 표시에 사용됨).
-- grammar_errors는 최대 5개까지, 실제로 발견된 것만 포함한다.
+- 매우 중요: grammar_errors에는 띄어쓰기·맞춤법·표준어 등 어문 규정 오류를 포함하지 말 것 (별도의 맞춤법 검사 시스템이 이미 전담한다). 여기서는 논리 비약, 어색한 표현, 불필요한 반복 등 내용·문장 수준의 문제만 최대 3개까지 포함한다.
 - 매우 중요: 모든 문자열 값 내부에서는 큰따옴표(")를 사용하지 말 것. 원문이나 예시를 인용할 때는 작은따옴표(') 또는 「」를 사용하라. JSON 이스케이프 오류를 방지하기 위함이다.
 """
 
@@ -46,12 +47,14 @@ def _grading_system_prompt(problem: Optional[Problem]) -> str:
             + GRADING_OUTPUT_SPEC
         )
 
-    # 대학 논술 (한양대/경희대 등): 문서화된 실제 채점기준표를 그대로 근거로 사용
+    # 대학 논술(한양대/경희대 등)은 문서화된 공식 채점기준표를, 사용자입력 문제는 Rubric Agent가
+    # 생성해 사용자가 확정한 채점기준을 그대로 근거로 사용한다.
+    rubric_label = "공식 채점기준 및 배점표" if source != "사용자입력" else "사용자가 확정한 채점기준"
     model_answer_block = f"\n\n[모범답안 예시]\n{problem.model_answer}" if problem.model_answer else ""
     return (
         base
         + f"[문제 및 제시문]\n{problem.content}\n\n"
-        + f"[채점 기준 — {source} 공식 채점기준 및 배점표, 이 기준의 항목/배점을 그대로 scores 배열로 반영할 것]\n{problem.rubric}"
+        + f"[채점 기준 — {source} {rubric_label}, 이 기준의 항목/배점을 그대로 scores 배열로 반영할 것]\n{problem.rubric}"
         + model_answer_block
         + "\n\n"
         + GRADING_OUTPUT_SPEC
@@ -105,7 +108,39 @@ async def grade_answer(db: Session, session: AnalysisSession, text: str) -> Dict
     system = _grading_system_prompt(problem)
     user = f"[학생 답안]\n{text}"
     data = await client.complete_json(system, user, max_tokens=2200)
-    return _normalize_grading_result(data)
+    result = _normalize_grading_result(data)
+
+    # 어문 규정 검사는 출처와 무관하게 공통으로 Bareun이 담당 (설계 원칙)
+    bareun_errors = check_spelling(text)
+    result["grammar_errors"] = (bareun_errors + result["grammar_errors"])[:8]
+    return result
+
+
+RUBRIC_AGENT_SYSTEM_PROMPT = (
+    "당신은 대입 논술 채점 기준을 설계하는 Rubric Agent입니다. 사용자가 직접 입력한 논술 문제를 "
+    "분석하여, 채점 위원이 그대로 사용할 수 있는 구체적인 채점 기준표를 한국어로 작성하십시오.\n"
+    "규칙:\n"
+    "1. 채점 항목은 3~6개로 나누고, 각 항목의 배점 합계가 정확히 100점이 되도록 하십시오.\n"
+    "2. 각 항목마다 '항목명 (배점점) — 무엇을 평가하는지 1~2문장 설명' 형식으로 작성하십시오.\n"
+    "3. 문제에 제시문·지문이 있다면 그 내용을 반영해 항목을 구체화하십시오.\n"
+    "4. 다른 설명, 인사말, 코드펜스 없이 채점 기준표 텍스트만 출력하십시오."
+)
+
+
+async def generate_rubric(content: str, title: Optional[str] = None, hint: Optional[str] = None) -> str:
+    client = ClaudeClient()
+    user_parts = []
+    if title:
+        user_parts.append(f"[문제 제목]\n{title}")
+    user_parts.append(f"[문제 및 지문]\n{content}")
+    if hint:
+        user_parts.append(f"[사용자가 참고를 요청한 사항]\n{hint}")
+    messages = [
+        {"role": "system", "content": RUBRIC_AGENT_SYSTEM_PROMPT},
+        {"role": "user", "content": "\n\n".join(user_parts)},
+    ]
+    reply = await client.chat(messages, max_tokens=1200)
+    return (reply.content or "").strip()
 
 
 TUTOR_SYSTEM_PROMPT = (

@@ -50,6 +50,35 @@ class SessionCreate(BaseModel):
     problem_source: str
 
 
+class LoginRequest(BaseModel):
+    identifier: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    identifier: str
+
+
+class RubricGenerateRequest(BaseModel):
+    title: Optional[str] = None
+    content: str
+    hint: Optional[str] = None
+
+
+class RubricGenerateOut(BaseModel):
+    rubric: str
+
+
+class ProblemCreate(BaseModel):
+    title: str
+    content: str
+    rubric: Optional[str] = None
+    model_answer: Optional[str] = None
+    created_by: Optional[int] = None
+
+
 class GradeRequest(BaseModel):
     session_id: int
     source: Optional[str] = "api"

@@ -4,3 +4,4 @@ sqlalchemy==2.0.52
 pydantic==2.13.4
 python-dotenv==1.0.1
 openai==2.54.0
+bareunpy==2.1.0

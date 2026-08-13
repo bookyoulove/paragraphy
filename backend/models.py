@@ -23,6 +23,7 @@ class Problem(Base):
     rubric = Column(Text, nullable=True)
     model_answer = Column(Text, nullable=True)
     meta = Column("metadata", JSON, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.datetime("now"))
 
     sessions = relationship("AnalysisSession", back_populates="problem")
