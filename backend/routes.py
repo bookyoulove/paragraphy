@@ -9,6 +9,7 @@ from .database import engine, Base, get_db, SessionLocal
 from .models import User, Problem, AnalysisSession, UserAnswer, AnalysisResult, ChatMessage
 from .schemas import (
     ProblemOut,
+    ProblemCreate,
     SessionOut,
     SessionCreate,
     AnswerCreate,
@@ -17,8 +18,12 @@ from .schemas import (
     GradeResultOut,
     ChatMessageIn,
     ChatResponseOut,
+    LoginRequest,
+    UserOut,
+    RubricGenerateRequest,
+    RubricGenerateOut,
 )
-from .service import grade_answer, chat_agent_reply
+from .service import grade_answer, chat_agent_reply, generate_rubric
 from .seed_data import build_seed_problems
 
 
@@ -57,6 +62,20 @@ def health():
     return {"status": "ok", "environment": "local"}
 
 
+@app.post("/api/login", response_model=UserOut)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    identifier = payload.identifier.strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="identifier is required")
+    user = db.query(User).filter(User.identifier == identifier).first()
+    if not user:
+        user = User(identifier=identifier)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+
 @app.get("/api/problems", response_model=List[ProblemOut])
 def list_problems(db: Session = Depends(get_db)):
     return db.query(Problem).order_by(Problem.id.desc()).all()
@@ -67,6 +86,29 @@ def get_problem(problem_id: int, db: Session = Depends(get_db)):
     problem = db.query(Problem).filter(Problem.id == problem_id).first()
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
+    return problem
+
+
+@app.post("/api/rubric/generate", response_model=RubricGenerateOut)
+async def rubric_generate(payload: RubricGenerateRequest):
+    rubric = await generate_rubric(payload.content, payload.title, payload.hint)
+    return {"rubric": rubric}
+
+
+@app.post("/api/problems", response_model=ProblemOut)
+def create_problem(payload: ProblemCreate, db: Session = Depends(get_db)):
+    problem = Problem(
+        title=payload.title.strip(),
+        source="사용자입력",
+        content=payload.content,
+        rubric=payload.rubric,
+        model_answer=payload.model_answer,
+        created_by=payload.created_by,
+        meta={"school": "사용자입력", "exam_type": "직접 입력", "year": "", "category": "사용자입력"},
+    )
+    db.add(problem)
+    db.commit()
+    db.refresh(problem)
     return problem
 
 

@@ -1,15 +1,16 @@
 const API = 'http://127.0.0.1:8000';
+const USER_STORAGE_KEY = 'paragraphy_user';
 
 let problems = [];
 let selectedProblem = null;
 let currentSession = null;
 let currentErrors = [];
+let currentUser = null;
 
-const problemSelector = document.getElementById('problemSelector');
+const problemList = document.getElementById('problemList');
 const problemTitle = document.getElementById('problemTitle');
 const problemContent = document.getElementById('problemContent');
 const problemRubric = document.getElementById('problemRubric');
-const problemMeta = document.getElementById('problemMeta');
 const problemBody = document.getElementById('problemBody');
 const btnToggleProblem = document.getElementById('btnToggleProblem');
 const sessionStatus = document.getElementById('sessionStatus');
@@ -18,6 +19,8 @@ const answerHighlight = document.getElementById('answerHighlight');
 const wordCounter = document.getElementById('wordCounter');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
+const loginOverlay = document.getElementById('loginOverlay');
+const userLabel = document.getElementById('userLabel');
 
 function escapeHtml(str) {
   return str
@@ -35,21 +38,87 @@ function formatMeta(meta) {
   return parts.join(' · ');
 }
 
-function createOptionLabel(problem) {
+function cardLabel(problem) {
   const school = problem.meta?.school || problem.source;
-  const year = problem.meta?.year || '연도 미정';
-  const type = problem.meta?.exam_type || '문제 유형';
-  return `${school} (${type}) - ${year}`;
+  const type = problem.meta?.exam_type || '문제';
+  const year = problem.meta?.year;
+  return { title: problem.title, meta: [school, type, year].filter(Boolean).join(' · ') };
 }
 
-// ---------- 탭 전환 ----------
+// ---------- 로그인 ----------
+function loadStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveStoredUser(user) {
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+}
+
+function showLogin() {
+  loginOverlay.hidden = false;
+  document.getElementById('loginInput').focus();
+}
+
+function hideLogin() {
+  loginOverlay.hidden = true;
+}
+
+async function doLogin() {
+  const input = document.getElementById('loginInput');
+  const errorBox = document.getElementById('loginError');
+  const identifier = input.value.trim();
+  if (!identifier) {
+    errorBox.textContent = '식별자를 입력해주세요.';
+    return;
+  }
+  try {
+    const user = await fetchApi('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier }),
+    });
+    currentUser = user;
+    saveStoredUser(user);
+    userLabel.textContent = user.identifier;
+    hideLogin();
+    errorBox.textContent = '';
+  } catch (err) {
+    console.error(err);
+    errorBox.textContent = '로그인에 실패했습니다. 백엔드 연결을 확인하세요.';
+  }
+}
+
+function switchUser() {
+  localStorage.removeItem(USER_STORAGE_KEY);
+  currentUser = null;
+  currentSession = null;
+  renderSessionStatus();
+  showLogin();
+}
+
+// ---------- 탭 전환 (채점결과/첨삭/챗봇) ----------
 function bindTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach((tab) => {
+  document.querySelectorAll('.tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.tab;
       document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
       document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === target));
+    });
+  });
+}
+
+// ---------- 문제 선택 모드 (기존 문제 / 직접 입력) ----------
+function bindModeTabs() {
+  document.querySelectorAll('.mode-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.mode;
+      document.querySelectorAll('.mode-tab').forEach((t) => t.classList.toggle('active', t === tab));
+      document.querySelectorAll('.mode-panel').forEach((p) => p.classList.toggle('active', p.dataset.modePanel === target));
     });
   });
 }
@@ -61,7 +130,6 @@ function rebuildHighlight() {
     answerHighlight.innerHTML = escapeHtml(text);
     return;
   }
-  // 답안에 실제로 등장하는 오류 구간만 순서대로 하이라이트
   let html = escapeHtml(text);
   const seen = new Set();
   currentErrors.forEach((err) => {
@@ -87,19 +155,49 @@ function updateWordCount() {
 }
 
 // ---------- 문제 렌더 ----------
+function renderProblemList() {
+  if (!problems.length) {
+    problemList.innerHTML = '<div class="panel-empty">등록된 문제가 없습니다.</div>';
+    return;
+  }
+  problemList.innerHTML = problems
+    .map((problem) => {
+      const { title, meta } = cardLabel(problem);
+      const selected = selectedProblem && selectedProblem.id === problem.id;
+      return `
+        <button type="button" class="problem-card ${selected ? 'selected' : ''}" data-problem-id="${problem.id}">
+          <span class="card-title">${escapeHtml(title)}</span>
+          <span class="card-meta">${escapeHtml(meta)}</span>
+        </button>
+      `;
+    })
+    .join('');
+  problemList.querySelectorAll('.problem-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const id = Number(card.dataset.problemId);
+      selectProblem(problems.find((p) => p.id === id));
+    });
+  });
+}
+
+function selectProblem(problem) {
+  selectedProblem = problem;
+  renderProblemList();
+  renderProblemDetails();
+  renderSessionStatus();
+}
+
 function renderProblemDetails() {
   if (!selectedProblem) {
     problemTitle.textContent = '문제를 선택해 주세요';
     problemContent.textContent = '선택한 문제의 본문과 지문이 이곳에 표시됩니다.';
     problemRubric.textContent = '문제를 선택하면 해당 문항과 채점 기준이 표시됩니다.';
-    problemMeta.textContent = '';
     return;
   }
 
   problemTitle.textContent = selectedProblem.title;
   problemContent.textContent = selectedProblem.content;
   problemRubric.textContent = selectedProblem.rubric || '채점 기준 정보가 없습니다.';
-  problemMeta.textContent = formatMeta(selectedProblem.meta);
 }
 
 function renderSessionStatus() {
@@ -142,8 +240,8 @@ function renderScoreResult(result) {
 }
 
 function tagClassForType(type) {
-  if (type.includes('비약') || type.includes('논리')) return 'neutral';
-  if (type.includes('어색') || type.includes('표현')) return 'warning';
+  if (type.includes('비약') || type.includes('논리') || type.includes('단정')) return 'neutral';
+  if (type.includes('어색') || type.includes('표현') || type.includes('중복')) return 'warning';
   return '';
 }
 
@@ -151,7 +249,7 @@ function renderProofItems(result) {
   const errors = result?.grammar_errors || [];
   currentErrors = errors;
   document.getElementById('proofCount').textContent = errors.length
-    ? `감지된 오류 ${errors.length}건 · 문법/표현 첨삭 Agent`
+    ? `감지된 오류 ${errors.length}건 · 어문규정(Bareun) + 첨삭 Agent`
     : '';
   const proofList = document.getElementById('proofList');
   if (!errors.length) {
@@ -201,20 +299,21 @@ async function fetchApi(path, options = {}) {
 async function loadProblems() {
   try {
     problems = await fetchApi('/api/problems');
-    problemSelector.innerHTML = problems
-      .map((problem) => `<option value="${problem.id}">${createOptionLabel(problem)}</option>`)
-      .join('');
-    if (problems.length > 0) {
-      selectedProblem = problems[0];
-      renderProblemDetails();
+    renderProblemList();
+    if (!selectedProblem && problems.length > 0) {
+      selectProblem(problems[0]);
     }
   } catch (err) {
     console.error(err);
-    problemSelector.innerHTML = '<option>문제 로드 실패</option>';
+    problemList.innerHTML = '<div class="panel-empty">문제 로드 실패 — 백엔드 연결을 확인하세요.</div>';
   }
 }
 
 async function createSession() {
+  if (!currentUser) {
+    alert('먼저 로그인하세요.');
+    return;
+  }
   if (!selectedProblem) {
     alert('먼저 문제를 선택하세요.');
     return;
@@ -223,7 +322,7 @@ async function createSession() {
     currentSession = await fetchApi('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: 1, problem_id: selectedProblem.id, problem_source: selectedProblem.source }),
+      body: JSON.stringify({ user_id: currentUser.id, problem_id: selectedProblem.id, problem_source: selectedProblem.source }),
     });
     renderSessionStatus();
   } catch (err) {
@@ -314,11 +413,68 @@ async function sendChat() {
   }
 }
 
-function onProblemChange() {
-  const id = Number(problemSelector.value);
-  selectedProblem = problems.find((problem) => problem.id === id);
-  renderProblemDetails();
-  renderSessionStatus();
+// ---------- 직접 입력 + Rubric Agent ----------
+async function generateRubric() {
+  const title = document.getElementById('customTitle').value.trim();
+  const content = document.getElementById('customContent').value.trim();
+  const rubricBox = document.getElementById('customRubric');
+  const status = document.getElementById('rubricStatus');
+  if (!content) {
+    alert('먼저 문제 본문을 입력하세요.');
+    return;
+  }
+  const btn = document.getElementById('btnGenerateRubric');
+  btn.disabled = true;
+  status.textContent = 'AI가 채점 기준을 생성하는 중입니다...';
+  try {
+    const result = await fetchApi('/api/rubric/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content }),
+    });
+    rubricBox.value = result.rubric;
+    status.textContent = 'AI가 생성한 채점 기준입니다. 필요하면 자유롭게 수정한 뒤 저장하세요.';
+  } catch (err) {
+    console.error(err);
+    status.textContent = '채점 기준 생성에 실패했습니다. 콘솔을 확인하세요.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function createCustomProblem() {
+  const title = document.getElementById('customTitle').value.trim();
+  const content = document.getElementById('customContent').value.trim();
+  const rubric = document.getElementById('customRubric').value.trim();
+  if (!title || !content) {
+    alert('문제 제목과 본문을 입력하세요.');
+    return;
+  }
+  if (!rubric) {
+    const proceed = confirm('채점 기준이 비어 있습니다. AI가 생성한 채점 기준 없이 저장할까요? (채점 시 정확도가 떨어질 수 있습니다)');
+    if (!proceed) return;
+  }
+  const btn = document.getElementById('btnCreateProblem');
+  btn.disabled = true;
+  try {
+    const problem = await fetchApi('/api/problems', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content, rubric: rubric || null, created_by: currentUser?.id || null }),
+    });
+    await loadProblems();
+    selectProblem(problems.find((p) => p.id === problem.id) || problem);
+    document.querySelector('.mode-tab[data-mode="existing"]').click();
+    document.getElementById('customTitle').value = '';
+    document.getElementById('customContent').value = '';
+    document.getElementById('customRubric').value = '';
+    document.getElementById('rubricStatus').textContent = '';
+  } catch (err) {
+    console.error(err);
+    alert('문제 저장에 실패했습니다. 콘솔을 확인하세요.');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function bindEvents() {
@@ -327,10 +483,16 @@ function bindEvents() {
   document.getElementById('btnSubmitAnswer').onclick = saveAnswer;
   document.getElementById('btnGrade').onclick = gradeAnswer;
   document.getElementById('btnSendChat').onclick = sendChat;
+  document.getElementById('btnLogin').onclick = doLogin;
+  document.getElementById('loginInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') doLogin();
+  });
+  document.getElementById('btnSwitchUser').onclick = switchUser;
+  document.getElementById('btnGenerateRubric').onclick = generateRubric;
+  document.getElementById('btnCreateProblem').onclick = createCustomProblem;
   chatInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') sendChat();
   });
-  problemSelector.onchange = onProblemChange;
   answerText.addEventListener('input', () => {
     updateWordCount();
     currentErrors = [];
@@ -342,6 +504,7 @@ function bindEvents() {
     btnToggleProblem.textContent = collapsed ? '펼치기' : '접기';
   };
   bindTabs();
+  bindModeTabs();
 }
 
 async function healthCheck() {
@@ -359,8 +522,15 @@ async function healthCheck() {
 
 async function init() {
   bindEvents();
+  const storedUser = loadStoredUser();
+  if (storedUser) {
+    currentUser = storedUser;
+    userLabel.textContent = storedUser.identifier;
+    hideLogin();
+  } else {
+    showLogin();
+  }
   await loadProblems();
-  renderProblemDetails();
   renderSessionStatus();
   updateWordCount();
   rebuildHighlight();
