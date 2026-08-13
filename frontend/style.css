@@ -542,6 +542,39 @@ button, input, textarea {
   text-align: center;
 }
 
+.panel-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 50px 6px;
+  text-align: center;
+}
+
+.grade-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #dfe7f1;
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: grade-spin 0.8s linear infinite;
+}
+
+@keyframes grade-spin {
+  to { transform: rotate(360deg); }
+}
+
+.grade-loading-text {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.grade-loading-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
 .score-card { padding-top: 4px; }
 
 .score-ring-wrap {

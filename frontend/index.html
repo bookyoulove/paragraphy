@@ -136,6 +136,11 @@
         <!-- 채점 결과 -->
         <div class="tab-panel active" data-panel="grade">
           <div id="gradeEmpty" class="panel-empty">아직 채점 결과가 없습니다. 답안을 저장한 뒤 "채점 요청"을 눌러주세요.</div>
+          <div id="gradeLoading" class="panel-loading" hidden>
+            <div class="grade-loading-spinner"></div>
+            <div class="grade-loading-text">채점 중입니다<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span></div>
+            <div class="grade-loading-sub">경과 시간 <span id="gradeLoadingSeconds">0</span>초 · 보통 20~60초 정도 걸립니다</div>
+          </div>
           <div id="gradeContent" class="score-card" hidden>
             <div class="score-ring-wrap">
               <div class="score-ring" id="scoreRing">

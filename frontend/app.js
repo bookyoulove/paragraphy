@@ -21,6 +21,7 @@ let currentSession = null;
 let currentErrors = [];
 let currentUser = null;
 let hasGradedInSession = false;
+let isGrading = false;
 
 const problemList = document.getElementById('problemList');
 const problemTitle = document.getElementById('problemTitle');
@@ -195,8 +196,8 @@ function updateLayout() {
   if (showingPicker) return;
 
   answerBox.hidden = false;
-  if (hasGradedInSession) {
-    // 채점 단계: 답안이 왼쪽, 채점/첨삭/챗봇이 오른쪽
+  if (hasGradedInSession || isGrading) {
+    // 채점 단계(채점 중 로딩 포함): 답안이 왼쪽, 채점/첨삭/챗봇이 오른쪽
     problemBox.hidden = true;
     resultPanel.hidden = false;
     leftColumn.appendChild(answerBox);
@@ -292,6 +293,33 @@ function renderProblemDetails() {
   problemTitle.textContent = selectedProblem.title;
   problemContent.textContent = selectedProblem.content;
   problemRubric.textContent = selectedProblem.rubric || '채점 기준 정보가 없습니다.';
+}
+
+// ---------- 채점 진행 중 로딩 표시 ----------
+let gradeLoadingInterval = null;
+let gradeLoadingStartTime = null;
+
+function showGradeLoading() {
+  document.getElementById('gradeEmpty').hidden = true;
+  document.getElementById('gradeContent').hidden = true;
+  document.getElementById('gradeLoading').hidden = false;
+  gradeLoadingStartTime = Date.now();
+  updateGradeLoadingSeconds();
+  if (gradeLoadingInterval) clearInterval(gradeLoadingInterval);
+  gradeLoadingInterval = setInterval(updateGradeLoadingSeconds, 1000);
+}
+
+function updateGradeLoadingSeconds() {
+  const el = document.getElementById('gradeLoadingSeconds');
+  if (el) el.textContent = Math.floor((Date.now() - gradeLoadingStartTime) / 1000);
+}
+
+function hideGradeLoading() {
+  if (gradeLoadingInterval) {
+    clearInterval(gradeLoadingInterval);
+    gradeLoadingInterval = null;
+  }
+  document.getElementById('gradeLoading').hidden = true;
 }
 
 // ---------- 채점 결과 렌더 ----------
@@ -599,8 +627,13 @@ async function gradeAnswer() {
     return;
   }
   const btnGrade = document.getElementById('btnGrade');
+  const hadPriorResult = hasGradedInSession;
   btnGrade.disabled = true;
   btnGrade.textContent = '채점 중...';
+  isGrading = true;
+  updateLayout();
+  document.querySelector('.tab[data-tab="grade"]').click();
+  showGradeLoading();
   try {
     await saveAnswer();
     const result = await fetchApi('/api/grade', {
@@ -609,15 +642,21 @@ async function gradeAnswer() {
       body: JSON.stringify({ session_id: currentSession.id, source: 'ui' }),
     });
     hasGradedInSession = true;
+    isGrading = false;
     updateLayout();
+    hideGradeLoading();
     renderScoreResult(result);
     renderProofItems(result);
     showPostGradeChatHint();
     await loadCompareTable();
-    document.querySelector('.tab[data-tab="grade"]').click();
   } catch (err) {
     console.error(err);
     alert('채점에 실패했습니다. 콘솔을 확인하세요.');
+    isGrading = false;
+    updateLayout();
+    hideGradeLoading();
+    document.getElementById('gradeContent').hidden = !hadPriorResult;
+    document.getElementById('gradeEmpty').hidden = hadPriorResult;
   } finally {
     btnGrade.disabled = false;
     btnGrade.textContent = '채점 요청';
