@@ -54,16 +54,19 @@ button, input, textarea {
 }
 
 .brand-badge {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   background: linear-gradient(180deg, #dfe8ff, #b7c8ff);
   color: #1d2d5a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 18px;
+  font-family: 'Alex Brush', cursive;
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1;
+  padding-top: 3px;
 }
 
 .brand-text {
@@ -127,8 +130,11 @@ button, input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 34px;
+  font-family: 'Alex Brush', cursive;
+  font-weight: 400;
+  font-size: 56px;
+  line-height: 1;
+  padding-top: 8px;
   box-shadow: 0 12px 30px rgba(0,0,0,0.35);
 }
 
