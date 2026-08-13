@@ -27,8 +27,6 @@ const problemList = document.getElementById('problemList');
 const problemTitle = document.getElementById('problemTitle');
 const problemContent = document.getElementById('problemContent');
 const problemRubric = document.getElementById('problemRubric');
-const problemBody = document.getElementById('problemBody');
-const btnToggleProblem = document.getElementById('btnToggleProblem');
 const sessionStatus = document.getElementById('sessionStatus');
 const answerText = document.getElementById('answerText');
 const answerHighlight = document.getElementById('answerHighlight');
@@ -800,10 +798,6 @@ function bindEvents() {
     ensureSessionStarted();
   });
   answerText.addEventListener('scroll', syncHighlightScroll);
-  btnToggleProblem.onclick = () => {
-    const collapsed = problemBody.classList.toggle('collapsed');
-    btnToggleProblem.textContent = collapsed ? '펼치기' : '접기';
-  };
   btnOpenPicker.onclick = showPicker;
   btnBackToWork.onclick = backToWork;
   document.getElementById('btnShowRubric').onclick = () => {

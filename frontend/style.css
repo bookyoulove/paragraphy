@@ -417,14 +417,16 @@ button, input, textarea {
   position: relative;
   width: min(640px, 92vw);
   max-height: 82vh;
-  overflow-y: auto;
   background: var(--white);
   border-radius: 12px;
-  padding: 20px 22px 24px;
+  padding: 20px 22px 0;
   box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
 }
 
 .rubric-modal-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -435,6 +437,10 @@ button, input, textarea {
 }
 
 .rubric-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 24px;
   font-size: 13px;
   line-height: 1.8;
   color: var(--text);
@@ -529,8 +535,6 @@ button, input, textarea {
   flex: 1;
   min-height: 0;
 }
-
-#problemBody.collapsed { display: none; }
 
 .problem-text {
   margin-top: 18px;
