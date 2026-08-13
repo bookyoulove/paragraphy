@@ -20,6 +20,7 @@ let selectedProblem = null;
 let currentSession = null;
 let currentErrors = [];
 let currentUser = null;
+let hasGradedInSession = false;
 
 const problemList = document.getElementById('problemList');
 const problemTitle = document.getElementById('problemTitle');
@@ -35,6 +36,18 @@ const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const loginOverlay = document.getElementById('loginOverlay');
 const userLabel = document.getElementById('userLabel');
+
+// 상태에 따라 leftColumn/rightColumn 사이를 이동하는 재사용 컴포넌트
+const problemBox = document.getElementById('problemBox');
+const answerBox = document.getElementById('answerBox');
+const resultPanel = document.getElementById('resultPanel');
+const leftColumn = document.getElementById('leftColumn');
+const rightColumn = document.getElementById('rightColumn');
+const emptyState = document.getElementById('emptyState');
+const workColumns = document.getElementById('workColumns');
+const currentProblemLabel = document.getElementById('currentProblemLabel');
+const btnStartSession = document.getElementById('btnStartSession');
+const problemPickerModal = document.getElementById('problemPickerModal');
 
 function escapeHtml(str) {
   return str
@@ -111,7 +124,7 @@ function switchUser() {
   localStorage.removeItem(USER_STORAGE_KEY);
   currentUser = null;
   currentSession = null;
-  renderSessionStatus();
+  updateControlBar();
   showLogin();
 }
 
@@ -135,6 +148,70 @@ function bindModeTabs() {
       document.querySelectorAll('.mode-panel').forEach((p) => p.classList.toggle('active', p.dataset.modePanel === target));
     });
   });
+}
+
+// ---------- 문제 선택 모달 ----------
+function isPickerOpen() {
+  return !problemPickerModal.hidden;
+}
+
+function openPicker() {
+  problemPickerModal.hidden = false;
+}
+
+function closePicker() {
+  problemPickerModal.hidden = true;
+}
+
+function togglePicker() {
+  if (isPickerOpen()) {
+    closePicker();
+  } else {
+    openPicker();
+  }
+}
+
+// ---------- 작업 레이아웃 전환 (문제/답안 ↔ 답안/채점결과) ----------
+function updateControlBar() {
+  if (!selectedProblem) {
+    currentProblemLabel.textContent = '선택된 문제가 없습니다.';
+    btnStartSession.hidden = true;
+    sessionStatus.textContent = '';
+    return;
+  }
+  currentProblemLabel.textContent = `${selectedProblem.title} — ${formatMeta(selectedProblem.meta)}`;
+  if (currentSession) {
+    btnStartSession.hidden = true;
+    sessionStatus.textContent = `세션 ${currentSession.id} 진행 중`;
+  } else {
+    btnStartSession.hidden = false;
+    sessionStatus.textContent = '세션이 아직 시작되지 않았습니다.';
+  }
+}
+
+function updateLayout() {
+  if (!selectedProblem) {
+    emptyState.hidden = false;
+    workColumns.hidden = true;
+    return;
+  }
+  emptyState.hidden = true;
+  workColumns.hidden = false;
+
+  answerBox.hidden = false;
+  if (hasGradedInSession) {
+    // 채점 단계: 답안이 왼쪽, 채점/첨삭/챗봇이 오른쪽
+    problemBox.hidden = true;
+    resultPanel.hidden = false;
+    leftColumn.appendChild(answerBox);
+    rightColumn.appendChild(resultPanel);
+  } else {
+    // 작성 단계: 문제/지문이 왼쪽, 답안 작성이 오른쪽
+    problemBox.hidden = false;
+    resultPanel.hidden = true;
+    leftColumn.appendChild(problemBox);
+    rightColumn.appendChild(answerBox);
+  }
 }
 
 // ---------- 답안 하이라이트 오버레이 ----------
@@ -196,9 +273,12 @@ function renderProblemList() {
 
 function selectProblem(problem) {
   selectedProblem = problem;
+  currentSession = null;
   renderProblemList();
   renderProblemDetails();
-  renderSessionStatus();
+  resetResultPanels();
+  updateControlBar();
+  closePicker();
 }
 
 function renderProblemDetails() {
@@ -212,14 +292,6 @@ function renderProblemDetails() {
   problemTitle.textContent = selectedProblem.title;
   problemContent.textContent = selectedProblem.content;
   problemRubric.textContent = selectedProblem.rubric || '채점 기준 정보가 없습니다.';
-}
-
-function renderSessionStatus() {
-  if (!currentSession) {
-    sessionStatus.textContent = '세션이 아직 시작되지 않았습니다.';
-  } else {
-    sessionStatus.textContent = `세션 ${currentSession.id} 진행 중 · 선택 문제: ${selectedProblem?.title || '없음'}`;
-  }
 }
 
 // ---------- 채점 결과 렌더 ----------
@@ -372,9 +444,6 @@ async function loadProblems() {
   try {
     problems = await fetchApi('/api/problems');
     renderProblemList();
-    if (!selectedProblem && problems.length > 0) {
-      selectProblem(problems[0]);
-    }
   } catch (err) {
     console.error(err);
     problemList.innerHTML = '<div class="panel-empty">문제 로드 실패 — 백엔드 연결을 확인하세요.</div>';
@@ -382,6 +451,7 @@ async function loadProblems() {
 }
 
 function resetResultPanels() {
+  hasGradedInSession = false;
   document.getElementById('gradeEmpty').hidden = false;
   document.getElementById('gradeContent').hidden = true;
   document.getElementById('compareSection').hidden = true;
@@ -394,6 +464,7 @@ function resetResultPanels() {
   renderChatMessages([
     { role: 'assistant', text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.' },
   ]);
+  updateLayout();
 }
 
 async function createSession() {
@@ -411,7 +482,7 @@ async function createSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: currentUser.id, problem_id: selectedProblem.id, problem_source: selectedProblem.source }),
     });
-    renderSessionStatus();
+    updateControlBar();
     resetResultPanels();
   } catch (err) {
     console.error(err);
@@ -456,6 +527,8 @@ async function gradeAnswer() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: currentSession.id, source: 'ui' }),
     });
+    hasGradedInSession = true;
+    updateLayout();
     renderScoreResult(result);
     renderProofItems(result);
     await loadCompareTable();
@@ -592,6 +665,13 @@ function bindEvents() {
     const collapsed = problemBody.classList.toggle('collapsed');
     btnToggleProblem.textContent = collapsed ? '펼치기' : '접기';
   };
+  document.getElementById('btnOpenPicker').onclick = togglePicker;
+  document.getElementById('btnOpenPickerEmpty').onclick = openPicker;
+  document.getElementById('btnClosePicker').onclick = closePicker;
+  document.getElementById('pickerBackdrop').onclick = closePicker;
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isPickerOpen()) closePicker();
+  });
   bindTabs();
   bindModeTabs();
 }
@@ -620,7 +700,8 @@ async function init() {
     showLogin();
   }
   await loadProblems();
-  renderSessionStatus();
+  updateControlBar();
+  updateLayout();
   updateWordCount();
   rebuildHighlight();
   healthCheck();

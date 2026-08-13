@@ -50,7 +50,7 @@ def build_seed_problems() -> list[dict]:
             meta={"school": "경희대", "exam_type": "사회계열", "year": "2025", "category": "대학논술"},
         ),
         dict(
-            title="경희대 논술 2026",
+            title="경희대 사회계 논술 2026",
             source="경희대",
             content=_read("2026_경희대논술_문제와_지문.md"),
             rubric=_read("2026_경희대논술_채점기준과_해설.md"),

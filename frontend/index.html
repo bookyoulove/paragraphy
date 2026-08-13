@@ -36,149 +36,170 @@
       </header>
 
       <main class="main-layout">
-        <section class="left-panel">
-          <div class="problem-picker">
-            <div class="picker-header">
-              <div>
-                <div class="label-title">문제 선택</div>
-                <div class="label-sub">기존 문제를 고르거나, 직접 문제와 채점기준을 입력할 수 있습니다.</div>
-              </div>
-              <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
-            </div>
-
-            <div class="mode-tabs">
-              <button class="mode-tab active" data-mode="existing">기존 문제에서 선택</button>
-              <button class="mode-tab" data-mode="custom">직접 입력</button>
-            </div>
-
-            <div class="mode-panel active" data-mode-panel="existing">
-              <div id="problemList" class="problem-list"></div>
-            </div>
-
-            <div class="mode-panel" data-mode-panel="custom">
-              <label class="field-label">문제 제목</label>
-              <input id="customTitle" class="select-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
-
-              <label class="field-label">문제 본문 / 제시문</label>
-              <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
-
-              <div class="rubric-row">
-                <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
-                <button id="btnGenerateRubric" class="ghost-btn">AI로 채점기준 생성</button>
-              </div>
-              <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
-              <div id="rubricStatus" class="session-status"></div>
-
-              <button id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
-            </div>
-
-            <button id="btnStartSession" class="primary-btn full-width">세션 시작</button>
-            <div id="sessionStatus" class="session-status">세션이 아직 시작되지 않았습니다.</div>
+        <div class="control-bar">
+          <button id="btnOpenPicker" class="primary-btn">문제 선택</button>
+          <div class="control-bar-info">
+            <span id="currentProblemLabel" class="current-problem-label">선택된 문제가 없습니다.</span>
+            <span id="sessionStatus" class="session-status"></span>
           </div>
+          <button id="btnStartSession" class="primary-btn" hidden>세션 시작</button>
+        </div>
 
-          <div class="problem-box">
-            <div class="problem-header">
-              <div id="problemTitle" class="problem-title">문제를 선택해 주세요</div>
-              <button id="btnToggleProblem" class="ghost-btn">접기</button>
-            </div>
+        <div id="emptyState" class="empty-state">
+          <div class="empty-state-title">아직 선택된 문제가 없습니다</div>
+          <div class="empty-state-sub">위 "문제 선택" 버튼을 눌러 기존 문제를 고르거나 직접 입력하세요.</div>
+          <button id="btnOpenPickerEmpty" class="primary-btn">문제 선택</button>
+        </div>
 
-            <div id="problemBody">
-              <div id="problemContent" class="problem-text muted">선택한 문제의 본문과 지문이 이곳에 표시됩니다.</div>
-
-              <div class="question-box">
-                <div class="question-label">채점 기준 / 출제 문항</div>
-                <div id="problemRubric" class="question-body">문제를 선택하면 해당 문항과 채점 기준이 표시됩니다.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="answer-box">
-            <div class="answer-header">
-              <div class="answer-title">답안 작성</div>
-              <div id="wordCounter" class="word-counter">0자</div>
-            </div>
-
-            <div class="highlight-wrap">
-              <div id="answerHighlight" class="answer-highlight" aria-hidden="true"></div>
-              <textarea id="answerText" class="answer-input" placeholder="여기에 답안을 작성하세요." spellcheck="false"></textarea>
-            </div>
-
-            <div class="answer-actions">
-              <button id="btnSubmitAnswer" class="primary-btn">답안 저장</button>
-              <button id="btnGrade" class="primary-btn">채점 요청</button>
-            </div>
-          </div>
-        </section>
-
-        <aside class="right-panel">
-          <div class="tabs">
-            <button class="tab active" data-tab="grade">채점 결과</button>
-            <button class="tab" data-tab="proof">첨삭 목록</button>
-            <button class="tab" data-tab="chat">Tutor Chat</button>
-          </div>
-
-          <div class="tab-panels">
-            <!-- 채점 결과 -->
-            <div class="tab-panel active" data-panel="grade">
-              <div id="gradeEmpty" class="panel-empty">아직 채점 결과가 없습니다. 답안을 저장한 뒤 "채점 요청"을 눌러주세요.</div>
-              <div id="gradeContent" class="score-card" hidden>
-                <div class="score-ring-wrap">
-                  <div class="score-ring" id="scoreRing">
-                    <div class="score-inner">
-                      <span class="score-number" id="scoreNumber">0</span>
-                      <span class="score-divider" id="scoreDivider">/ 0</span>
-                    </div>
-                  </div>
-                  <div class="score-text">
-                    <div class="score-title" id="scoreTitle">채점 결과</div>
-                    <div class="score-sub" id="scoreSub"></div>
-                  </div>
-                </div>
-
-                <div id="criteriaList" class="criteria-list"></div>
-
-                <div class="checklist-box">
-                  <div class="checklist-title">수정 방향성</div>
-                  <ul id="suggestionList"></ul>
-                </div>
-
-                <div id="compareSection" class="compare-section" hidden>
-                  <div class="compare-title">채점 비교 (같은 세션 내 재채점 이력)</div>
-                  <div class="compare-table-wrap">
-                    <table id="compareTable" class="compare-table"></table>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 첨삭 목록 -->
-            <div class="tab-panel" data-panel="proof">
-              <div id="proofCount" class="proof-count"></div>
-              <div id="proofList" class="proof-list">
-                <div class="proof-box">
-                  <div class="proof-tag">정보</div>
-                  <div class="proof-text">채점 후 문법 및 첨삭 항목이 표시됩니다.</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Tutor Chat -->
-            <div class="tab-panel" data-panel="chat">
-              <div id="chatMessages" class="chat-messages">
-                <div class="chat-box chat-assistant">
-                  <div class="chat-badge assistant">AI</div>
-                  <div class="chat-msg">세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.</div>
-                </div>
-              </div>
-              <div class="chat-input-wrap">
-                <input id="chatInput" type="text" placeholder="Tutor에게 질문하기" />
-                <button id="btnSendChat" class="primary-btn small-btn">전송</button>
-              </div>
-            </div>
-          </div>
-        </aside>
+        <div id="workColumns" class="work-columns" hidden>
+          <section id="leftColumn" class="column-slot"></section>
+          <section id="rightColumn" class="column-slot"></section>
+        </div>
       </main>
     </div>
+
+    <!-- 문제 선택 모달 -->
+    <div id="problemPickerModal" class="picker-modal" hidden>
+      <div id="pickerBackdrop" class="picker-modal-backdrop"></div>
+      <div class="picker-modal-card">
+        <div class="picker-modal-header">
+          <div>
+            <div class="label-title">문제 선택</div>
+            <div class="label-sub">기존 문제를 고르거나, 직접 문제와 채점기준을 입력할 수 있습니다.</div>
+          </div>
+          <button id="btnClosePicker" class="ghost-btn">닫기 ✕</button>
+        </div>
+
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="existing">기존 문제에서 선택</button>
+          <button class="mode-tab" data-mode="custom">직접 입력</button>
+        </div>
+
+        <div class="mode-panel active" data-mode-panel="existing">
+          <div class="picker-list-header">
+            <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
+          </div>
+          <div id="problemList" class="problem-list"></div>
+        </div>
+
+        <div class="mode-panel" data-mode-panel="custom">
+          <label class="field-label">문제 제목</label>
+          <input id="customTitle" class="select-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
+
+          <label class="field-label">문제 본문 / 제시문</label>
+          <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
+
+          <div class="rubric-row">
+            <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
+            <button id="btnGenerateRubric" class="ghost-btn">AI로 채점기준 생성</button>
+          </div>
+          <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
+          <div id="rubricStatus" class="session-status"></div>
+
+          <button id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 재사용 컴포넌트: JS가 상태에 따라 leftColumn/rightColumn 사이로 이동시킴 -->
+    <div id="problemBox" class="problem-box" hidden>
+      <div class="problem-header">
+        <div id="problemTitle" class="problem-title">문제를 선택해 주세요</div>
+        <button id="btnToggleProblem" class="ghost-btn">접기</button>
+      </div>
+      <div id="problemBody">
+        <div id="problemContent" class="problem-text muted">선택한 문제의 본문과 지문이 이곳에 표시됩니다.</div>
+        <div class="question-box">
+          <div class="question-label">채점 기준 / 출제 문항</div>
+          <div id="problemRubric" class="question-body">문제를 선택하면 해당 문항과 채점 기준이 표시됩니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="answerBox" class="answer-box" hidden>
+      <div class="answer-header">
+        <div class="answer-title">답안 작성</div>
+        <div id="wordCounter" class="word-counter">0자</div>
+      </div>
+
+      <div class="highlight-wrap">
+        <div id="answerHighlight" class="answer-highlight" aria-hidden="true"></div>
+        <textarea id="answerText" class="answer-input" placeholder="여기에 답안을 작성하세요." spellcheck="false"></textarea>
+      </div>
+
+      <div class="answer-actions">
+        <button id="btnSubmitAnswer" class="primary-btn">답안 저장</button>
+        <button id="btnGrade" class="primary-btn">채점 요청</button>
+      </div>
+    </div>
+
+    <aside id="resultPanel" class="right-panel" hidden>
+      <div class="tabs">
+        <button class="tab active" data-tab="grade">채점 결과</button>
+        <button class="tab" data-tab="proof">첨삭 목록</button>
+        <button class="tab" data-tab="chat">Tutor Chat</button>
+      </div>
+
+      <div class="tab-panels">
+        <!-- 채점 결과 -->
+        <div class="tab-panel active" data-panel="grade">
+          <div id="gradeEmpty" class="panel-empty">아직 채점 결과가 없습니다. 답안을 저장한 뒤 "채점 요청"을 눌러주세요.</div>
+          <div id="gradeContent" class="score-card" hidden>
+            <div class="score-ring-wrap">
+              <div class="score-ring" id="scoreRing">
+                <div class="score-inner">
+                  <span class="score-number" id="scoreNumber">0</span>
+                  <span class="score-divider" id="scoreDivider">/ 0</span>
+                </div>
+              </div>
+              <div class="score-text">
+                <div class="score-title" id="scoreTitle">채점 결과</div>
+                <div class="score-sub" id="scoreSub"></div>
+              </div>
+            </div>
+
+            <div id="criteriaList" class="criteria-list"></div>
+
+            <div class="checklist-box">
+              <div class="checklist-title">수정 방향성</div>
+              <ul id="suggestionList"></ul>
+            </div>
+
+            <div id="compareSection" class="compare-section" hidden>
+              <div class="compare-title">채점 비교 (같은 세션 내 재채점 이력)</div>
+              <div class="compare-table-wrap">
+                <table id="compareTable" class="compare-table"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 첨삭 목록 -->
+        <div class="tab-panel" data-panel="proof">
+          <div id="proofCount" class="proof-count"></div>
+          <div id="proofList" class="proof-list">
+            <div class="proof-box">
+              <div class="proof-tag">정보</div>
+              <div class="proof-text">채점 후 문법 및 첨삭 항목이 표시됩니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tutor Chat -->
+        <div class="tab-panel" data-panel="chat">
+          <div id="chatMessages" class="chat-messages">
+            <div class="chat-box chat-assistant">
+              <div class="chat-badge assistant">AI</div>
+              <div class="chat-msg">세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.</div>
+            </div>
+          </div>
+          <div class="chat-input-wrap">
+            <input id="chatInput" type="text" placeholder="Tutor에게 질문하기" />
+            <button id="btnSendChat" class="primary-btn small-btn">전송</button>
+          </div>
+        </div>
+      </div>
+    </aside>
 
     <script src="app.js"></script>
   </body>
