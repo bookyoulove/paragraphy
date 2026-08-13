@@ -454,6 +454,29 @@ button, input, textarea {
   white-space: pre-wrap;
 }
 
+.history-list { white-space: normal; display: flex; flex-direction: column; gap: 8px; }
+
+.history-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-card:hover { border-color: var(--brand); background: var(--brand-soft); }
+
+.history-card-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.history-card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.history-card-meta { font-size: 11px; color: var(--muted); }
+.history-card-score { font-size: 15px; font-weight: 800; color: var(--brand); white-space: nowrap; }
+.history-card-score.pending { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+
 .label-title { font-size: 14px; font-weight: 700; }
 .label-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 

@@ -46,6 +46,7 @@
         </div>
         <div class="topbar-right">
           <div class="topbar-meta">대입 논술 채점 · 첨삭</div>
+          <button id="btnShowHistory" class="ghost-btn dark">답안 기록</button>
           <div class="topbar-user">
             <span id="userLabel"></span>
             <button id="btnSwitchUser" class="ghost-btn dark">전환</button>
@@ -131,6 +132,20 @@
           <button id="btnCloseRubric" class="ghost-btn">닫기 ✕</button>
         </div>
         <div id="problemRubric" class="rubric-modal-body">문제를 선택하면 채점 기준이 표시됩니다.</div>
+      </div>
+    </div>
+
+    <div id="historyModal" class="rubric-modal" hidden>
+      <div id="historyModalBackdrop" class="rubric-modal-backdrop"></div>
+      <div class="rubric-modal-card">
+        <div class="rubric-modal-header">
+          <div>
+            <div class="label-title">답안 기록</div>
+            <div class="label-sub">지금까지 작성한 답안을 다시 열어 이어서 수정하고, 재채점하여 점수를 비교할 수 있습니다.</div>
+          </div>
+          <button id="btnCloseHistory" class="ghost-btn">닫기 ✕</button>
+        </div>
+        <div id="historyList" class="rubric-modal-body history-list">불러오는 중...</div>
       </div>
     </div>
 

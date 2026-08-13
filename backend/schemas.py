@@ -112,6 +112,20 @@ class ResultSummaryOut(BaseModel):
     scores: List[ScoreItem]
     grammar_error_count: int
     commentary: Optional[str] = None
+    suggestions: Optional[List[str]] = []
+    grammar_errors: Optional[List[Dict[str, Any]]] = []
+
+
+class SessionHistoryOut(BaseModel):
+    id: int
+    problem_id: Optional[int] = None
+    problem_title: str
+    problem_source: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    attempt_count: int
+    latest_score: Optional[int] = None
+    latest_total_max: Optional[int] = None
 
 
 class ChatMessageIn(BaseModel):
