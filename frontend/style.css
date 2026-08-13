@@ -62,8 +62,8 @@ button, input, textarea {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #16203f;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.3);
+  background: radial-gradient(circle at 50% 0%, #2a3f73 0%, #16203f 55%, #0f1526 100%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,6 +108,104 @@ button, input, textarea {
   color: #fff;
 }
 
+.app-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.sidebar {
+  width: 208px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 14px 10px;
+}
+
+.sidebar-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 8px 4px;
+}
+
+.sidebar-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-item:hover { background: #eef1f8; }
+
+.sidebar-item.active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-left-color: var(--brand);
+  font-weight: 700;
+}
+
+.main-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.content-info-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.content-view[hidden] { display: none; }
+.content-view { display: block; }
+
+#view-grade[hidden] { display: none; }
+
+#view-grade {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.empty-state[hidden] { display: none; }
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  background: var(--white);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  min-height: 300px;
+}
+
 .landing-view {
   position: fixed;
   inset: 0;
@@ -132,7 +230,7 @@ button, input, textarea {
   height: 72px;
   margin: 0 auto 28px;
   border-radius: 20px;
-  background: #16203f;
+  background: radial-gradient(circle at 50% 0%, #2a3f73 0%, #16203f 55%, #0f1526 100%);
   display: flex;
   align-items: center;
   justify-content: center;
