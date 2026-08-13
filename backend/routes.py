@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -5,10 +7,41 @@ from typing import List
 
 from .database import engine, Base, get_db, SessionLocal
 from .models import User, Problem, AnalysisSession, UserAnswer, AnalysisResult, ChatMessage
-from .schemas import ProblemOut, SessionOut, SessionCreate, AnswerCreate, AnswerOut, GradeRequest, GradeResultOut, ChatMessageIn, ChatResponseOut
-from .service import grade_answer
+from .schemas import (
+    ProblemOut,
+    SessionOut,
+    SessionCreate,
+    AnswerCreate,
+    AnswerOut,
+    GradeRequest,
+    GradeResultOut,
+    ChatMessageIn,
+    ChatResponseOut,
+)
+from .service import grade_answer, chat_agent_reply
+from .seed_data import build_seed_problems
 
-app = FastAPI(title="Paragraphy API")
+
+def seed_default_data():
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.identifier == "ui_user").first():
+            db.add(User(identifier="ui_user"))
+        if db.query(Problem).count() == 0:
+            db.add_all(Problem(**p) for p in build_seed_problems())
+        db.commit()
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    seed_default_data()
+    yield
+
+
+app = FastAPI(title="Paragraphy API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,47 +50,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-Base.metadata.create_all(bind=engine)
-
-
-@app.on_event("startup")
-def seed_default_data():
-    db = SessionLocal()
-    try:
-        if not db.query(User).filter(User.identifier == "ui_user").first():
-            db.add(User(identifier="ui_user"))
-        if db.query(Problem).count() == 0:
-            sample_problems = [
-                Problem(
-                    title="한양대 상경 논술 2025",
-                    source="한양대",
-                    content="제시문 (가)와 (나)를 비교하고, 온라인 익명성의 공동체 영향에 대한 견해를 논술하시오.",
-                    rubric="내용, 조직, 표현, 논리성, 완성도",
-                    model_answer="모범 답안 예시...",
-                    meta={"school": "한양대", "exam_type": "상경", "year": "2025", "category": "대학논술"},
-                ),
-                Problem(
-                    title="경희대 인문 논술 2025",
-                    source="경희대",
-                    content="제시문을 바탕으로 인문학적 통찰과 논리를 담아 학생의 주장을 서술하시오.",
-                    rubric="논리성, 근거 제시, 표현력",
-                    model_answer="모범 답안 예시...",
-                    meta={"school": "경희대", "exam_type": "인문", "year": "2025", "category": "대학논술"},
-                ),
-                Problem(
-                    title="국립국어원 논술 평가 예시",
-                    source="국립국어원",
-                    content="다음 지문을 읽고, 주제의 의미와 사회적 함의를 서술하시오.",
-                    rubric="내용, 표현, 문법, 논리",
-                    model_answer="모범 답안 예시...",
-                    meta={"school": "국립국어원", "exam_type": "논술", "year": "2025", "category": "국어"},
-                ),
-            ]
-            db.add_all(sample_problems)
-        db.commit()
-    finally:
-        db.close()
 
 
 @app.get("/health")
@@ -83,7 +75,11 @@ def create_session(session_in: SessionCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == session_in.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    session = AnalysisSession(user_id=session_in.user_id, problem_id=session_in.problem_id, problem_source=session_in.problem_source)
+    session = AnalysisSession(
+        user_id=session_in.user_id,
+        problem_id=session_in.problem_id,
+        problem_source=session_in.problem_source,
+    )
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -100,8 +96,19 @@ def submit_answer(answer: AnswerCreate, db: Session = Depends(get_db)):
     session = db.query(AnalysisSession).filter(AnalysisSession.id == answer.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    user_answer = UserAnswer(session_id=answer.session_id, text=answer.text, status=answer.status)
-    db.add(user_answer)
+    # 세션 단위 upsert: 해당 세션의 draft 답안이 있으면 갱신, 없으면 새로 생성
+    user_answer = (
+        db.query(UserAnswer)
+        .filter(UserAnswer.session_id == answer.session_id, UserAnswer.status == "draft")
+        .order_by(UserAnswer.id.desc())
+        .first()
+    )
+    if user_answer:
+        user_answer.text = answer.text
+        user_answer.status = answer.status
+    else:
+        user_answer = UserAnswer(session_id=answer.session_id, text=answer.text, status=answer.status)
+        db.add(user_answer)
     db.commit()
     db.refresh(user_answer)
     return user_answer
@@ -112,17 +119,24 @@ async def grade_session(request: GradeRequest, db: Session = Depends(get_db)):
     session = db.query(AnalysisSession).filter(AnalysisSession.id == request.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    answer = db.query(UserAnswer).filter(UserAnswer.session_id == session.id).order_by(UserAnswer.created_at.desc()).first()
+    answer = (
+        db.query(UserAnswer)
+        .filter(UserAnswer.session_id == session.id)
+        .order_by(UserAnswer.created_at.desc(), UserAnswer.id.desc())
+        .first()
+    )
     if not answer:
         raise HTTPException(status_code=404, detail="Answer not found")
-    analysis = await grade_answer(session.id, answer.text)
+
+    analysis = await grade_answer(db, session, answer.text)
+
     result = AnalysisResult(
         session_id=session.id,
         source=request.source,
-        scores=analysis.get("scores"),
-        grammar_errors=analysis.get("grammar_errors"),
-        commentary=analysis.get("commentary"),
-        tool_responses=analysis.get("tool_responses"),
+        scores=analysis["scores"],
+        grammar_errors=analysis["grammar_errors"],
+        suggestions=analysis["suggestions"],
+        commentary=analysis["commentary"],
     )
     db.add(result)
     db.commit()
@@ -131,11 +145,12 @@ async def grade_session(request: GradeRequest, db: Session = Depends(get_db)):
     return {
         "session_id": session.id,
         "source": result.source,
-        "score": analysis.get("score", 0),
+        "score": analysis["score"],
+        "total_max": analysis["total_max"],
         "scores": result.scores or [],
         "commentary": result.commentary,
+        "suggestions": result.suggestions or [],
         "grammar_errors": result.grammar_errors or [],
-        "tool_responses": result.tool_responses or {},
     }
 
 
@@ -144,20 +159,21 @@ async def chat_message(payload: ChatMessageIn, db: Session = Depends(get_db)):
     session = db.query(AnalysisSession).filter(AnalysisSession.id == payload.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    user_message = ChatMessage(session_id=payload.session_id, role="user", text=payload.text, metadata=payload.metadata)
+
+    user_message = ChatMessage(session_id=payload.session_id, role="user", text=payload.text, meta=payload.meta)
     db.add(user_message)
     db.commit()
     db.refresh(user_message)
 
-    # Simplified chat response from the last grading commentary or template response
-    last_result = db.query(AnalysisResult).filter(AnalysisResult.session_id == session.id).order_by(AnalysisResult.id.desc()).first()
-    reply_text = ""
-    if last_result and last_result.commentary:
-        reply_text = f"이 답안의 주요 문제점: {last_result.commentary}"
-    else:
-        reply_text = "답안을 먼저 채점한 후, 보다 구체적인 첨삭 피드백을 제공하겠습니다."
+    history = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.session_id == session.id)
+        .order_by(ChatMessage.id.asc())
+        .all()
+    )
+    reply_text = await chat_agent_reply(db, session, history)
 
-    assistant_message = ChatMessage(session_id=payload.session_id, role="assistant", text=reply_text, meta={"source": "auto"})
+    assistant_message = ChatMessage(session_id=payload.session_id, role="assistant", text=reply_text, meta={"source": "tutor_agent"})
     db.add(assistant_message)
     db.commit()
     db.refresh(assistant_message)
