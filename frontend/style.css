@@ -262,23 +262,6 @@ button, input, textarea {
   margin-top: 0;
 }
 
-.empty-state {
-  background: var(--panel);
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-  padding: 60px 20px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.empty-state[hidden] { display: none; }
-
-.empty-state-title { font-size: 16px; font-weight: 700; color: var(--text); }
-.empty-state-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
-
 .work-columns[hidden] { display: none; }
 
 .work-columns {
@@ -290,35 +273,17 @@ button, input, textarea {
 
 .column-slot { min-width: 0; }
 
-.picker-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+.picker-view[hidden] { display: none; }
 
-.picker-modal[hidden] { display: none; }
-
-.picker-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 17, 21, 0.55);
-}
-
-.picker-modal-card {
-  position: relative;
-  width: min(640px, 92vw);
-  max-height: 86vh;
-  overflow-y: auto;
+.picker-view {
   background: var(--white);
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 20px 22px 24px;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+  box-shadow: 0 2px 6px var(--shadow);
 }
 
-.picker-modal-header {
+.picker-view-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;

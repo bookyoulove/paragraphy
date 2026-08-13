@@ -37,7 +37,7 @@
 
       <main class="main-layout">
         <div class="control-bar">
-          <button id="btnOpenPicker" class="primary-btn">문제 선택</button>
+          <button id="btnOpenPicker" class="primary-btn" hidden>문제 선택</button>
           <div class="control-bar-info">
             <span id="currentProblemLabel" class="current-problem-label">선택된 문제가 없습니다.</span>
             <span id="sessionStatus" class="session-status"></span>
@@ -45,10 +45,44 @@
           <button id="btnStartSession" class="primary-btn" hidden>세션 시작</button>
         </div>
 
-        <div id="emptyState" class="empty-state">
-          <div class="empty-state-title">아직 선택된 문제가 없습니다</div>
-          <div class="empty-state-sub">위 "문제 선택" 버튼을 눌러 기존 문제를 고르거나 직접 입력하세요.</div>
-          <button id="btnOpenPickerEmpty" class="primary-btn">문제 선택</button>
+        <!-- 문제 선택 화면: 팝업이 아니라 문제 미선택 시 첫 화면으로 표시됨 -->
+        <div id="pickerView" class="picker-view">
+          <div class="picker-view-header">
+            <div>
+              <div class="label-title">문제 선택</div>
+              <div class="label-sub">기존 문제를 고르거나, 직접 문제와 채점기준을 입력할 수 있습니다.</div>
+            </div>
+            <button id="btnBackToWork" class="ghost-btn" hidden>돌아가기</button>
+          </div>
+
+          <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="existing">기존 문제에서 선택</button>
+            <button class="mode-tab" data-mode="custom">직접 입력</button>
+          </div>
+
+          <div class="mode-panel active" data-mode-panel="existing">
+            <div class="picker-list-header">
+              <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
+            </div>
+            <div id="problemList" class="problem-list"></div>
+          </div>
+
+          <div class="mode-panel" data-mode-panel="custom">
+            <label class="field-label">문제 제목</label>
+            <input id="customTitle" class="select-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
+
+            <label class="field-label">문제 본문 / 제시문</label>
+            <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
+
+            <div class="rubric-row">
+              <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
+              <button id="btnGenerateRubric" class="ghost-btn">AI로 채점기준 생성</button>
+            </div>
+            <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
+            <div id="rubricStatus" class="session-status"></div>
+
+            <button id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
+          </div>
         </div>
 
         <div id="workColumns" class="work-columns" hidden>
@@ -56,49 +90,6 @@
           <section id="rightColumn" class="column-slot"></section>
         </div>
       </main>
-    </div>
-
-    <!-- 문제 선택 모달 -->
-    <div id="problemPickerModal" class="picker-modal" hidden>
-      <div id="pickerBackdrop" class="picker-modal-backdrop"></div>
-      <div class="picker-modal-card">
-        <div class="picker-modal-header">
-          <div>
-            <div class="label-title">문제 선택</div>
-            <div class="label-sub">기존 문제를 고르거나, 직접 문제와 채점기준을 입력할 수 있습니다.</div>
-          </div>
-          <button id="btnClosePicker" class="ghost-btn">닫기 ✕</button>
-        </div>
-
-        <div class="mode-tabs">
-          <button class="mode-tab active" data-mode="existing">기존 문제에서 선택</button>
-          <button class="mode-tab" data-mode="custom">직접 입력</button>
-        </div>
-
-        <div class="mode-panel active" data-mode-panel="existing">
-          <div class="picker-list-header">
-            <button id="btnLoadProblems" class="ghost-btn">문제 새로고침</button>
-          </div>
-          <div id="problemList" class="problem-list"></div>
-        </div>
-
-        <div class="mode-panel" data-mode-panel="custom">
-          <label class="field-label">문제 제목</label>
-          <input id="customTitle" class="select-input" type="text" placeholder="예: SNS 알고리즘 규제 찬반" />
-
-          <label class="field-label">문제 본문 / 제시문</label>
-          <textarea id="customContent" class="custom-textarea" placeholder="문제(발문)와 제시문을 입력하세요."></textarea>
-
-          <div class="rubric-row">
-            <label class="field-label">채점 기준 (선택 입력, 비워두면 AI가 생성)</label>
-            <button id="btnGenerateRubric" class="ghost-btn">AI로 채점기준 생성</button>
-          </div>
-          <textarea id="customRubric" class="custom-textarea" placeholder="채점 기준을 직접 입력하거나, 위 버튼으로 AI가 생성한 뒤 수정하세요."></textarea>
-          <div id="rubricStatus" class="session-status"></div>
-
-          <button id="btnCreateProblem" class="primary-btn full-width">이 문제로 저장하고 선택</button>
-        </div>
-      </div>
     </div>
 
     <!-- 재사용 컴포넌트: JS가 상태에 따라 leftColumn/rightColumn 사이로 이동시킴 -->
