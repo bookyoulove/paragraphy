@@ -1,4 +1,18 @@
-const API = 'http://127.0.0.1:8000';
+function resolveApiBase() {
+  const { protocol, hostname, host, pathname } = window.location;
+  if (hostname === '127.0.0.1' || hostname === 'localhost') {
+    return 'http://127.0.0.1:8000';
+  }
+  // Elice VS Code tunnel proxy pattern: https://<id>.tunnel.elice.io/proxy/<port>/...
+  const match = pathname.match(/\/proxy\/\d+\//);
+  if (match) {
+    const prefix = pathname.slice(0, match.index);
+    return `${protocol}//${host}${prefix}/proxy/8000`;
+  }
+  return 'http://127.0.0.1:8000';
+}
+
+const API = resolveApiBase();
 const USER_STORAGE_KEY = 'paragraphy_user';
 
 let problems = [];
