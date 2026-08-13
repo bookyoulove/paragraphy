@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from .database import engine, Base, get_db, SessionLocal
 from .models import User, Problem, AnalysisSession, UserAnswer, AnalysisResult, ChatMessage
@@ -17,6 +17,7 @@ from .schemas import (
     GradeRequest,
     GradeResultOut,
     ResultSummaryOut,
+    SessionHistoryOut,
     ChatMessageIn,
     ChatResponseOut,
     LoginRequest,
@@ -131,9 +132,63 @@ def create_session(session_in: SessionCreate, db: Session = Depends(get_db)):
     return session
 
 
-@app.get("/api/sessions/user/{user_id}", response_model=List[SessionOut])
+@app.get("/api/sessions/user/{user_id}", response_model=List[SessionHistoryOut])
 def list_sessions(user_id: int, db: Session = Depends(get_db)):
-    return db.query(AnalysisSession).filter(AnalysisSession.user_id == user_id).order_by(AnalysisSession.id.desc()).all()
+    """사용자가 지금까지 작성한 답안 기록(세션) 목록을 최신순으로 반환한다 (답안 기록 화면용)."""
+    sessions = (
+        db.query(AnalysisSession)
+        .filter(AnalysisSession.user_id == user_id)
+        .order_by(AnalysisSession.id.desc())
+        .all()
+    )
+    history = []
+    for session in sessions:
+        has_answer = db.query(UserAnswer).filter(UserAnswer.session_id == session.id).first()
+        if not has_answer:
+            continue  # 답안을 작성하지 않은 빈 세션은 기록에서 제외
+        results = (
+            db.query(AnalysisResult)
+            .filter(AnalysisResult.session_id == session.id)
+            .order_by(AnalysisResult.id.asc())
+            .all()
+        )
+        latest_score = latest_total_max = None
+        if results:
+            latest_score, latest_total_max = sum_scores(results[-1].scores)
+        history.append(
+            SessionHistoryOut(
+                id=session.id,
+                problem_id=session.problem_id,
+                problem_title=session.problem.title if session.problem else "직접 입력 문제",
+                problem_source=session.problem_source,
+                created_at=session.created_at,
+                updated_at=session.updated_at,
+                attempt_count=len(results),
+                latest_score=latest_score,
+                latest_total_max=latest_total_max,
+            )
+        )
+    return history
+
+
+@app.get("/api/sessions/{session_id}", response_model=SessionOut)
+def get_session(session_id: int, db: Session = Depends(get_db)):
+    session = db.query(AnalysisSession).filter(AnalysisSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return session
+
+
+@app.get("/api/sessions/{session_id}/answer", response_model=Optional[AnswerOut])
+def get_latest_answer(session_id: int, db: Session = Depends(get_db)):
+    """세션에 저장된 가장 최근 답안을 반환한다 (기록에서 이어쓰기용)."""
+    answer = (
+        db.query(UserAnswer)
+        .filter(UserAnswer.session_id == session_id)
+        .order_by(UserAnswer.created_at.desc(), UserAnswer.id.desc())
+        .first()
+    )
+    return answer
 
 
 @app.post("/api/answers", response_model=AnswerOut)
@@ -225,6 +280,8 @@ def list_session_results(session_id: int, db: Session = Depends(get_db)):
                 "scores": result.scores or [],
                 "grammar_error_count": len(result.grammar_errors or []),
                 "commentary": result.commentary,
+                "suggestions": result.suggestions or [],
+                "grammar_errors": result.grammar_errors or [],
             }
         )
     return summaries

@@ -543,6 +543,119 @@ async function loadProblems() {
   }
 }
 
+// ---------- 답안 기록 (지난 세션 목록 → 이어서 수정/재채점) ----------
+function formatHistoryDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function renderHistoryList(sessions) {
+  const box = document.getElementById('historyList');
+  if (!sessions.length) {
+    box.innerHTML = '<div class="panel-empty">아직 작성한 답안이 없습니다. 문제를 선택해 답안을 작성해보세요.</div>';
+    return;
+  }
+  box.innerHTML = sessions
+    .map((s) => {
+      const scoreLabel = s.latest_score === null || s.latest_score === undefined
+        ? '<span class="history-card-score pending">미채점</span>'
+        : `<span class="history-card-score">${s.latest_score} / ${s.latest_total_max}</span>`;
+      const attemptNote = s.attempt_count > 1 ? ` · 채점 ${s.attempt_count}회` : '';
+      return `
+        <button type="button" class="history-card" data-session-id="${s.id}">
+          <div class="history-card-main">
+            <div class="history-card-title">${escapeHtml(s.problem_title)}</div>
+            <div class="history-card-meta">${escapeHtml(s.problem_source)} · ${formatHistoryDate(s.created_at)}${attemptNote}</div>
+          </div>
+          ${scoreLabel}
+        </button>
+      `;
+    })
+    .join('');
+  box.querySelectorAll('.history-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      const id = Number(card.dataset.sessionId);
+      resumeSession(id);
+    });
+  });
+}
+
+async function openHistoryModal() {
+  if (!currentUser) {
+    alert('먼저 로그인하세요.');
+    return;
+  }
+  document.getElementById('historyModal').hidden = false;
+  const box = document.getElementById('historyList');
+  box.innerHTML = '불러오는 중...';
+  try {
+    const sessions = await fetchApi(`/api/sessions/user/${currentUser.id}`);
+    renderHistoryList(sessions);
+  } catch (err) {
+    console.error(err);
+    box.innerHTML = '<div class="panel-empty">답안 기록을 불러오지 못했습니다. 콘솔을 확인하세요.</div>';
+  }
+}
+
+function closeHistoryModal() {
+  document.getElementById('historyModal').hidden = true;
+}
+
+async function resumeSession(sessionId) {
+  try {
+    const session = await fetchApi(`/api/sessions/${sessionId}`);
+    let problem = problems.find((p) => p.id === session.problem_id);
+    if (!problem && session.problem_id) {
+      problem = await fetchApi(`/api/problems/${session.problem_id}`);
+    }
+    if (!problem) {
+      alert('이 답안이 연결된 문제 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    const [answer, results] = await Promise.all([
+      fetchApi(`/api/sessions/${session.id}/answer`),
+      fetchApi(`/api/sessions/${session.id}/results`),
+    ]);
+
+    closeHistoryModal();
+
+    selectedProblem = problem;
+    currentSession = session;
+    forcePickerView = false;
+    renderProblemList();
+    renderProblemDetails();
+
+    answerText.value = answer ? answer.text : '';
+    updateWordCount();
+    currentErrors = [];
+
+    hasGradedInSession = results.length > 0;
+    if (hasGradedInSession) {
+      const latest = results[results.length - 1];
+      renderScoreResult(latest);
+      renderProofItems(latest);
+      renderCompareTable(results);
+      showPostGradeChatHint();
+    } else {
+      document.getElementById('gradeEmpty').hidden = false;
+      document.getElementById('gradeContent').hidden = true;
+      document.getElementById('compareSection').hidden = true;
+      document.getElementById('compareTable').innerHTML = '';
+      renderProofItems(null);
+      renderChatMessages([
+        { role: 'assistant', text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.' },
+      ]);
+    }
+    updateLayout();
+  } catch (err) {
+    console.error(err);
+    alert('답안 기록을 불러오는 데 실패했습니다. 콘솔을 확인하세요.');
+  }
+}
+
 function resetResultPanels() {
   hasGradedInSession = false;
   document.getElementById('gradeEmpty').hidden = false;
@@ -808,6 +921,9 @@ function bindEvents() {
   };
   document.getElementById('btnCloseRubric').onclick = closeRubricModal;
   document.getElementById('rubricModalBackdrop').onclick = closeRubricModal;
+  document.getElementById('btnShowHistory').onclick = openHistoryModal;
+  document.getElementById('btnCloseHistory').onclick = closeHistoryModal;
+  document.getElementById('historyModalBackdrop').onclick = closeHistoryModal;
   bindTabs();
   bindModeTabs();
 }
