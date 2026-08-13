@@ -1,12 +1,11 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 
-from backend.orm.crud import CRUDUser
-from backend.orm.models import UserCreate
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+from backend.depends import AuthDep, UserDBDep
+from backend.schema.user import UserCreate
 
 router = APIRouter(
     prefix="/auth",
@@ -14,20 +13,22 @@ router = APIRouter(
 )
 
 
+class Token(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"]
+
+
 @router.post("/login")
 async def token(
     payload: Annotated[OAuth2PasswordRequestForm, Depends()],
-    user_db: Annotated[CRUDUser, Depends()],
-):
+    user_db: UserDBDep,
+) -> Token:
     found_user = user_db.get_name(payload.username)
     if found_user is None:
         user_db.create(UserCreate(user_name=payload.username))
-    return {
-        "access_token": payload.username,
-        "token_type": "bearer",
-    }
+    return Token(access_token=payload.username, token_type="bearer")
 
 
 @router.get("/my")
-async def my(user: Annotated[str, Depends(oauth2_scheme)]):
+async def my(user: AuthDep) -> str:
     return user
