@@ -10,13 +10,13 @@ erDiagram
     CHAT_SESSIONS ||--o{ CHAT_MESSAGES : has
 
     USERS {
-        uuid user_id PK
+        uuid id PK
         text user_name
         datetime created_at
     }
 
     PROBLEMS {
-        uuid problem_id PK
+        uuid id PK
         string title
         bool created_by_user
         uuid user_id FK "nullable"
@@ -27,28 +27,28 @@ erDiagram
     }
 
     RUBRICS {
-        uuid rubric_id PK
+        uuid id PK
         uuid problem_id FK
         string criteria
         text description "nullable"
     }
 
     ANALYSIS_SESSIONS {
-        uuid session_id PK
+        uuid id PK
         uuid user_id FK
         uuid problem_id FK
         datetime created_at
     }
 
     USER_ANSWERS {
-        uuid answer_id PK
+        uuid id PK
         uuid session_id FK
         text user_answer
         string status
     }
 
     ANALYSIS_RESULTS {
-        uuid result_id PK
+        uuid id PK
         uuid answer_id FK
         json grammar_result
         json criteria_scores
@@ -57,13 +57,13 @@ erDiagram
     }
 
     CHAT_SESSIONS {
-        uuid chat_id PK
+        uuid id PK
         uuid result_id FK
         datetime created_at
     }
 
     CHAT_MESSAGES {
-        uuid message_id PK
+        uuid id PK
         uuid chat_id FK
         string role
         text content

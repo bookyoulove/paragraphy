@@ -40,7 +40,7 @@ class PydanticJSON[T](TypeDecorator[T]):
 
 """
 USERS {
-    uuid user_id PK
+    uuid id PK
     text user_name
     datetime created_at
 }
@@ -48,7 +48,7 @@ USERS {
 
 
 class Users(SQLModel, table=True):
-    user_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_name: str
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
@@ -60,7 +60,7 @@ class Users(SQLModel, table=True):
 
 """
 PROBLEMS {
-    uuid problem_id PK
+    uuid id PK
     string title
     bool created_by_user
     uuid user_id FK "nullable"
@@ -73,10 +73,10 @@ PROBLEMS {
 
 
 class Problems(SQLModel, table=True):
-    problem_id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     title: str = Field(max_length=256)
     created_by_user: bool
-    user_id: UUID | None = Field(None, foreign_key="users.user_id")
+    user_id: UUID | None = Field(None, foreign_key="users.id")
     university: str | None = Field(None, max_length=32)
     year: int | None = None
     content: str
@@ -89,7 +89,7 @@ class Problems(SQLModel, table=True):
 
 """
 RUBRICS {
-    uuid rubric_id PK
+    uuid id PK
     uuid problem_id FK
     string criteria
     text description "nullable"
@@ -98,8 +98,8 @@ RUBRICS {
 
 
 class Rubrics(SQLModel, table=True):
-    rubric_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    problem_id: UUID = Field(foreign_key="problems.problem_id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    problem_id: UUID = Field(foreign_key="problems.id")
     criteria: str = Field(max_length=256)
     description: str | None = None
 
@@ -108,7 +108,7 @@ class Rubrics(SQLModel, table=True):
 
 """
 ANALYSIS_SESSIONS {
-    uuid session_id PK
+    uuid id PK
     uuid user_id FK
     uuid problem_id FK
     datetime created_at
@@ -118,9 +118,9 @@ ANALYSIS_SESSIONS {
 
 class AnalysisSessions(SQLModel, table=True):
     __tablename__ = "analysis_sessions"  # type: ignore
-    session_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    user_id: UUID = Field(foreign_key="users.user_id")
-    problem_id: UUID = Field(foreign_key="problems.problem_id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    problem_id: UUID = Field(foreign_key="problems.id")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
     )
@@ -132,7 +132,7 @@ class AnalysisSessions(SQLModel, table=True):
 
 """
 USER_ANSWERS {
-    uuid answer_id PK
+    uuid id PK
     uuid session_id FK
     text user_answer
     string status
@@ -147,8 +147,8 @@ class Status(StrEnum):
 
 class UserAnswers(SQLModel, table=True):
     __tablename__ = "user_answers"  # type: ignore
-    answer_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    session_id: UUID = Field(foreign_key="analysis_sessions.session_id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    session_id: UUID = Field(foreign_key="analysis_sessions.id")
     user_answer: str
     status: Status
 
@@ -158,7 +158,7 @@ class UserAnswers(SQLModel, table=True):
 
 """
 ANALYSIS_RESULTS {
-    uuid result_id PK
+    uuid id PK
     uuid answer_id FK
 
     json grammar_result
@@ -179,8 +179,8 @@ class CriteriaScore(SQLModel):
 
 class AnalysisResults(SQLModel, table=True):
     __tablename__ = "analysis_results"  # type: ignore
-    result_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    answer_id: UUID = Field(foreign_key="user_answers.answer_id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    answer_id: UUID = Field(foreign_key="user_answers.id")
     grammar_result: GrammarResult = Field(sa_column=Column(PydanticJSON(GrammarResult)))
     criteria_scores: list[CriteriaScore] = Field(
         sa_column=Column(PydanticJSON(list[CriteriaScore]))
@@ -197,7 +197,7 @@ class AnalysisResults(SQLModel, table=True):
 
 """
 CHAT_SESSIONS {
-    uuid chat_id PK
+    uuid id PK
     uuid result_id FK
     datetime created_at
 }
@@ -206,8 +206,8 @@ CHAT_SESSIONS {
 
 class ChatSessions(SQLModel, table=True):
     __tablename__ = "chat_sessions"  # type: ignore
-    chat_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    result_id: UUID = Field(foreign_key="analysis_results.result_id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    result_id: UUID = Field(foreign_key="analysis_results.id")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
     )
@@ -218,7 +218,7 @@ class ChatSessions(SQLModel, table=True):
 
 """
 CHAT_MESSAGES {
-    uuid message_id PK
+    uuid id PK
     uuid chat_id FK
     string role
     text content
@@ -229,8 +229,8 @@ CHAT_MESSAGES {
 
 class ChatMessages(SQLModel, table=True):
     __tablename__ = "chat_messages"  # type: ignore
-    message_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    chat_id: UUID = Field(foreign_key="chat_sessions.chat_id")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    chat_id: UUID = Field(foreign_key="chat_sessions.id")
     role: str = Field(max_length=10)
     content: str
     created_at: datetime = Field(
