@@ -43,11 +43,15 @@ const answerBox = document.getElementById('answerBox');
 const resultPanel = document.getElementById('resultPanel');
 const leftColumn = document.getElementById('leftColumn');
 const rightColumn = document.getElementById('rightColumn');
-const emptyState = document.getElementById('emptyState');
+const pickerView = document.getElementById('pickerView');
 const workColumns = document.getElementById('workColumns');
 const currentProblemLabel = document.getElementById('currentProblemLabel');
 const btnStartSession = document.getElementById('btnStartSession');
-const problemPickerModal = document.getElementById('problemPickerModal');
+const btnOpenPicker = document.getElementById('btnOpenPicker');
+const btnBackToWork = document.getElementById('btnBackToWork');
+
+// true면 문제가 이미 선택되어 있어도 강제로 문제 선택 화면을 보여준다 (문제 변경용)
+let forcePickerView = false;
 
 function escapeHtml(str) {
   return str
@@ -150,36 +154,28 @@ function bindModeTabs() {
   });
 }
 
-// ---------- 문제 선택 모달 ----------
-function isPickerOpen() {
-  return !problemPickerModal.hidden;
+// ---------- 문제 선택 화면 전환 (문제 변경용) ----------
+function showPicker() {
+  forcePickerView = true;
+  updateLayout();
 }
 
-function openPicker() {
-  problemPickerModal.hidden = false;
+function backToWork() {
+  forcePickerView = false;
+  updateLayout();
 }
 
-function closePicker() {
-  problemPickerModal.hidden = true;
-}
-
-function togglePicker() {
-  if (isPickerOpen()) {
-    closePicker();
-  } else {
-    openPicker();
-  }
-}
-
-// ---------- 작업 레이아웃 전환 (문제/답안 ↔ 답안/채점결과) ----------
+// ---------- 작업 레이아웃 전환 (문제선택 ↔ 문제/답안 ↔ 답안/채점결과) ----------
 function updateControlBar() {
   if (!selectedProblem) {
     currentProblemLabel.textContent = '선택된 문제가 없습니다.';
     btnStartSession.hidden = true;
+    btnOpenPicker.hidden = true;
     sessionStatus.textContent = '';
     return;
   }
   currentProblemLabel.textContent = `${selectedProblem.title} — ${formatMeta(selectedProblem.meta)}`;
+  btnOpenPicker.hidden = forcePickerView;
   if (currentSession) {
     btnStartSession.hidden = true;
     sessionStatus.textContent = `세션 ${currentSession.id} 진행 중`;
@@ -190,13 +186,13 @@ function updateControlBar() {
 }
 
 function updateLayout() {
-  if (!selectedProblem) {
-    emptyState.hidden = false;
-    workColumns.hidden = true;
-    return;
-  }
-  emptyState.hidden = true;
-  workColumns.hidden = false;
+  updateControlBar();
+
+  const showingPicker = !selectedProblem || forcePickerView;
+  pickerView.hidden = !showingPicker;
+  workColumns.hidden = showingPicker;
+  btnBackToWork.hidden = !selectedProblem;
+  if (showingPicker) return;
 
   answerBox.hidden = false;
   if (hasGradedInSession) {
@@ -272,13 +268,17 @@ function renderProblemList() {
 }
 
 function selectProblem(problem) {
+  const isDifferentProblem = !selectedProblem || selectedProblem.id !== problem.id;
   selectedProblem = problem;
   currentSession = null;
+  forcePickerView = false;
+  if (isDifferentProblem) {
+    answerText.value = '';
+    updateWordCount();
+  }
   renderProblemList();
   renderProblemDetails();
-  resetResultPanels();
-  updateControlBar();
-  closePicker();
+  resetResultPanels(); // 내부에서 updateLayout() 호출
 }
 
 function renderProblemDetails() {
@@ -665,13 +665,8 @@ function bindEvents() {
     const collapsed = problemBody.classList.toggle('collapsed');
     btnToggleProblem.textContent = collapsed ? '펼치기' : '접기';
   };
-  document.getElementById('btnOpenPicker').onclick = togglePicker;
-  document.getElementById('btnOpenPickerEmpty').onclick = openPicker;
-  document.getElementById('btnClosePicker').onclick = closePicker;
-  document.getElementById('pickerBackdrop').onclick = closePicker;
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && isPickerOpen()) closePicker();
-  });
+  btnOpenPicker.onclick = showPicker;
+  btnBackToWork.onclick = backToWork;
   bindTabs();
   bindModeTabs();
 }
