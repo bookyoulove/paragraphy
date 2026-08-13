@@ -167,6 +167,49 @@ function updateCanvasState() {
   draftBadge.textContent = hasGradedInSession ? '채점 완료 · 재채점 가능' : '작성 중';
 }
 
+// 좌/우 드로어를 드래그로 리사이즈한다. 클릭(짧은 이동)은 옆의 토글 버튼이 담당하므로
+// 여기서는 실제로 드래그가 시작된 경우에만 폭을 바꾸고, min/max로 무한 확장을 막는다.
+// 답안 작성 캔버스(.canvas-pane)는 CSS min-width로 항상 최소 폭을 보장한다.
+function setupResizeHandle(handle, panel, { min, max, side }) {
+  if (!handle || !panel) return;
+  let dragging = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  handle.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startWidth = panel.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    panel.style.transition = 'none';
+    document.body.style.userSelect = 'none';
+    handle.setPointerCapture(e.pointerId);
+  });
+
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    const signedDelta = side === 'left' ? delta : -delta;
+    const newWidth = Math.min(max, Math.max(min, startWidth + signedDelta));
+    panel.style.width = `${newWidth}px`;
+  });
+
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    panel.style.transition = '';
+    document.body.style.userSelect = '';
+    try {
+      handle.releasePointerCapture(e.pointerId);
+    } catch (err) {
+      // 이미 해제된 경우 무시
+    }
+  };
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+}
+
 function updateScoreChip(result) {
   if (!result) {
     scoreChip.hidden = true;
@@ -1042,6 +1085,18 @@ function bindEvents() {
   document.getElementById('btnDrawerToggle').onclick = () => {
     workspace.classList.toggle('drawer-collapsed');
   };
+
+  // 좌우 드로어 드래그 리사이즈 (무한 확장 방지 + 답안 캔버스는 CSS min-width로 항상 확보)
+  setupResizeHandle(document.getElementById('problemResizeHandle'), document.getElementById('problemDrawer'), {
+    min: 220,
+    max: 460,
+    side: 'left',
+  });
+  setupResizeHandle(document.getElementById('resultResizeHandle'), document.getElementById('resultDrawer'), {
+    min: 300,
+    max: 520,
+    side: 'right',
+  });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
