@@ -37,6 +37,8 @@ const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const loginOverlay = document.getElementById('loginOverlay');
 const userLabel = document.getElementById('userLabel');
+const landingView = document.getElementById('landingView');
+const pageWrap = document.getElementById('pageWrap');
 
 // 상태에 따라 leftColumn/rightColumn 사이를 이동하는 재사용 컴포넌트
 const problemBox = document.getElementById('problemBox');
@@ -98,6 +100,17 @@ function showLogin() {
 
 function hideLogin() {
   loginOverlay.hidden = true;
+}
+
+// ---------- 랜딩 페이지 ----------
+function enterApp() {
+  landingView.hidden = true;
+  pageWrap.hidden = false;
+  if (currentUser) {
+    hideLogin();
+  } else {
+    showLogin();
+  }
 }
 
 async function doLogin() {
@@ -764,6 +777,7 @@ async function createCustomProblem() {
 }
 
 function bindEvents() {
+  document.getElementById('btnLandingStart').onclick = enterApp;
   document.getElementById('btnLoadProblems').onclick = loadProblems;
   document.getElementById('btnStartSession').onclick = createSession;
   document.getElementById('btnSubmitAnswer').onclick = saveAnswer;
@@ -815,9 +829,6 @@ async function init() {
   if (storedUser) {
     currentUser = storedUser;
     userLabel.textContent = storedUser.identifier;
-    hideLogin();
-  } else {
-    showLogin();
   }
   await loadProblems();
   updateControlBar();

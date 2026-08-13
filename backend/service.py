@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any, Dict, List, Optional
 
@@ -8,6 +9,10 @@ from .llm_client import ClaudeClient
 from .models import AnalysisSession, ChatMessage, Problem
 from .rubrics import NIKL_CRITERIA
 from .tool_executor import TOOLS, ToolExecutor
+
+# get_feedback은 매 턴 미리 조회해 시스템 프롬프트에 주입하므로, 굳이 도구로
+# 다시 노출하지 않는다 (LLM 왕복 1회를 줄여 챗봇 응답 속도를 개선하기 위함).
+CHAT_TOOLS = [t for t in TOOLS if t["function"]["name"] != "get_feedback"]
 
 GRADING_OUTPUT_SPEC = """
 반드시 아래 JSON 형식으로만 답하라 (다른 텍스트, 설명, 코드펜스 없이 JSON 객체 하나만):
@@ -116,11 +121,14 @@ async def grade_answer(db: Session, session: AnalysisSession, text: str) -> Dict
     client = ClaudeClient()
     system = _grading_system_prompt(problem)
     user = f"[학생 답안]\n{text}"
-    data = await client.complete_json(system, user, max_tokens=2200)
-    result = _normalize_grading_result(data)
 
-    # 어문 규정 검사는 출처와 무관하게 공통으로 Bareun이 담당 (설계 원칙)
-    bareun_errors = check_spelling(text)
+    # LLM 채점과 Bareun 어문규정 검사는 서로 독립적이므로 동시에 실행해 지연시간을 겹친다.
+    # (Bareun 클라이언트는 동기 I/O이므로 스레드로 오프로드)
+    data, bareun_errors = await asyncio.gather(
+        client.complete_json(system, user, max_tokens=2200),
+        asyncio.to_thread(check_spelling, text),
+    )
+    result = _normalize_grading_result(data)
     result["grammar_errors"] = (bareun_errors + result["grammar_errors"])[:8]
     return result
 
@@ -154,9 +162,11 @@ async def generate_rubric(content: str, title: Optional[str] = None, hint: Optio
 
 TUTOR_SYSTEM_PROMPT = (
     "당신은 학생의 논술 답안 채점 결과를 바탕으로 질문에 답하는 Tutor Chat 에이전트입니다.\n"
-    "직접 DB나 채점 로직에 접근할 수 없으므로, 필요한 정보는 반드시 제공된 도구(get_feedback, "
-    "get_problem_index, get_model_answer)를 호출해서만 확인하십시오. 도구를 호출하지 않고 임의로 "
-    "점수나 오류를 추측해서 답하지 마십시오. 답변은 한국어로, 3~4문장 이내로 간결하게 하십시오."
+    "직접 DB나 채점 로직에 접근할 수 없습니다. 아래 [현재 채점 결과]에 최신 채점 정보가 이미 "
+    "주어져 있으니 대부분의 질문은 도구 호출 없이 이 정보만으로 바로 답변하십시오. 문제 원문/지문이나 "
+    "채점 기준 전체, 모범답안처럼 [현재 채점 결과]에 없는 정보가 필요할 때만 get_problem_index 또는 "
+    "get_model_answer 도구를 호출하십시오. 주어지지 않은 정보를 임의로 추측해서 답하지 마십시오. "
+    "답변은 한국어로, 3~4문장 이내로 간결하게 하십시오."
 )
 
 
@@ -164,13 +174,20 @@ async def chat_agent_reply(db: Session, session: AnalysisSession, history: List[
     client = ClaudeClient()
     executor = ToolExecutor(db, session)
 
-    messages: List[Dict[str, Any]] = [{"role": "system", "content": TUTOR_SYSTEM_PROMPT}]
+    # 채점 결과는 거의 모든 질문에서 필요하므로 매 턴 미리 조회해 시스템 프롬프트에 주입한다.
+    # (도구 호출 왕복을 1회 줄여 응답 속도를 개선 — 문제 원문/모범답안처럼 드물게 필요한 것만 도구로 남김)
+    feedback_context = executor.call("get_feedback", {})
+    system_prompt = (
+        TUTOR_SYSTEM_PROMPT + "\n\n[현재 채점 결과]\n" + json.dumps(feedback_context, ensure_ascii=False)
+    )
+
+    messages: List[Dict[str, Any]] = [{"role": "system", "content": system_prompt}]
     for msg in history:
         role = "assistant" if msg.role == "assistant" else "user"
         messages.append({"role": role, "content": msg.text})
 
     for _ in range(3):
-        reply = await client.chat(messages, tools=TOOLS, max_tokens=700)
+        reply = await client.chat(messages, tools=CHAT_TOOLS, max_tokens=700)
         tool_calls = getattr(reply, "tool_calls", None)
         if tool_calls:
             messages.append(
