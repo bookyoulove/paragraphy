@@ -1,53 +1,33 @@
-from datetime import datetime
 from typing import Annotated
-from uuid import uuid4
-from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Form
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
-FAKE_DB = [
-    {
-        "user_id": uuid4(),
-        "user_name": "testUser",
-        "timestamp": datetime.now(tz=ZoneInfo("Asia/Seoul")),
-    }
-]
-
-
-class User(BaseModel):
-    id: str
-
-
-class LoginRequest(BaseModel):
-    id: str
-
+from backend.orm.crud import CRUDUser
+from backend.orm.models import UserCreate
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 router = APIRouter(
     prefix="/auth",
     tags=["auth"],
-    # dependencies=[auth db dependency]
 )
 
 
 @router.post("/login")
-async def token(payload: Annotated[LoginRequest, Form()]):
-    for next_db in FAKE_DB:
-        if next_db["user_name"] == payload.id:
-            break
-    else:
-        FAKE_DB.append(
-            {
-                "user_id": uuid4(),
-                "user_name": payload.id,
-                "timestamp": datetime.now(tz=ZoneInfo("Asia/Seoul")),
-            }
-        )
+async def token(
+    payload: Annotated[OAuth2PasswordRequestForm, Depends()],
+    user_db: Annotated[CRUDUser, Depends()],
+):
+    found_user = user_db.get_name(payload.username)
+    if found_user is None:
+        user_db.create(UserCreate(user_name=payload.username))
     return {
-        "access_token": payload.id,
+        "access_token": payload.username,
         "token_type": "bearer",
     }
-    # TODO
+
+
+@router.get("/my")
+async def my(user: Annotated[str, Depends(oauth2_scheme)]):
+    return user
