@@ -1,4 +1,4 @@
-import logo from '../../../frontend_old/logo.png';
+import logo from '../assets/logo.png';
 
 export default function Brand({ landing = false }) {
   return (
