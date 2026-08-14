@@ -1,4 +1,4 @@
-@import '../../frontend_old/style.css';
+@import './styles/legacy.css';
 
 /* React 화면의 작은 보완 스타일 */
 .problem-text {
