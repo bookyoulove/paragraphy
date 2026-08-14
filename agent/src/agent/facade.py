@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Any, override
+from typing import override
 
 from shared.protocol import AnalysisAgentProtocol, RubricAgentProtocol
 from shared.schema.analysis import AnalysisRequest, AnalysisResult
@@ -15,14 +15,8 @@ from shared.schema.rubric import Rubric, RubricGenerationRequest, RubricList
 
 from agent.graphs.grading import grading_app
 from agent.graphs.rubric import rubric_app
-from agent.schemas.grading import AnalysisOutput
-from agent.schemas.rubric import RubricGenerationOutput
-
-
-def _value(obj: Any, name: str, default: Any = None) -> Any:
-    if isinstance(obj, dict):
-        return obj.get(name, default)
-    return getattr(obj, name, default)
+from agent.schemas.grading import AnalysisOutput, GradingState
+from agent.schemas.rubric import RubricGenerationOutput, RubricState
 
 
 def _to_backend_rubric_list(output: RubricGenerationOutput) -> RubricList:
@@ -49,16 +43,11 @@ class RubricAgent(RubricAgentProtocol):
 
     @override
     async def run(self, input: RubricGenerationRequest) -> RubricList:
-        state = {
-            "content": _value(input, "content", ""),
-            "model_answer": _value(input, "model_answer"),
-        }
-        result = await rubric_app.ainvoke(state)
-        if result.get("error"):
-            raise ValueError(result["error"])
-        return _to_backend_rubric_list(
-            RubricGenerationOutput(rubrics=result.get("rubrics", []))
-        )
+        result_raw = await rubric_app.ainvoke(RubricState(request=input))
+        result = RubricState.model_validate(result_raw)
+        if result.error:
+            raise ValueError(result.error)
+        return _to_backend_rubric_list(RubricGenerationOutput(rubrics=result.rubrics))
 
 
 class AnalysisAgent(AnalysisAgentProtocol):
@@ -66,31 +55,15 @@ class AnalysisAgent(AnalysisAgentProtocol):
 
     @override
     async def run(self, input: AnalysisRequest) -> AnalysisResult:
-        problem = _value(input, "problem", {})
-        rubric_items = []
-        for rubric in _value(problem, "rubrics", []) or []:
-            rubric_items.append(
-                {
-                    "criteria": _value(rubric, "criteria", ""),
-                    "description": _value(rubric, "description", "") or "",
-                    "max_score": 5,
-                }
-            )
-
-        state = {
-            "problem_content": _value(problem, "content", ""),
-            "model_answer": _value(problem, "model_answer"),
-            "rubric_items": rubric_items,
-            "user_answer": _value(input, "user_answer", ""),
-            "university": _value(problem, "university"),
-        }
-        result = await grading_app.ainvoke(state)
-        if result.get("error"):
-            raise ValueError(result["error"])
+        result_raw = await grading_app.ainvoke(GradingState(request=input))
+        result = GradingState.model_validate(result_raw)
+        if result.error:
+            raise ValueError(result.error)
         return _to_backend_analysis_result(
             AnalysisOutput(
-                criteria_scores=result.get("criteria_scores", []),
-                overall_comment=result.get("overall_comment") or None,
+                grammar_result=result.grammar_result,
+                criteria_scores=result.criteria_scores,
+                overall_comment=result.overall_comment or None,
             )
         )
 

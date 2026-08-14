@@ -21,3 +21,6 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 shared = { path = "../shared", editable = true }
+
+[tool.ruff.lint]
+ignore = ["BLE001"]
