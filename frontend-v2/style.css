@@ -193,7 +193,6 @@ button { cursor: pointer; }
 }
 
 .brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.brand svg { width: 20px; height: 20px; color: var(--red); }
 .brand span { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
 
 .problem-switcher-trigger {
