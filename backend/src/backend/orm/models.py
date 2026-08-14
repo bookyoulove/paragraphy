@@ -10,6 +10,7 @@ from shared.schema.analysis import CriteriaScore
 from shared.schema.grammar import GrammarResult
 from shared.schema.problem import ProblemContent
 from shared.schema.rubric import Rubric as RubricBase
+from shared.schema.tutor import ChatMessage as ChatMessageBase
 from sqlmodel import (
     JSON,
     Column,
@@ -229,11 +230,6 @@ CHAT_MESSAGES {
     datetime created_at
 }
 """
-
-
-class ChatMessageBase(SQLModel):
-    role: str = Field(max_length=10)
-    content: str
 
 
 class ChatMessages(ChatMessageBase, TimeStampMixin, table=True):
