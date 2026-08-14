@@ -7,6 +7,7 @@ import ProblemPicker from './components/ProblemPicker';
 import CustomProblemForm from './components/CustomProblemForm';
 import Workbench from './components/Workbench';
 import HistoryView from './components/HistoryView';
+import TutorChatModal from './components/TutorChatModal';
 import { mockApi } from './mocks/api';
 
 export default function App() {
@@ -84,13 +85,7 @@ export default function App() {
               <CustomProblemForm onGenerate={mockApi.generateRubric} onCreate={create} />
             )}
             {view === 'work' && (
-              <Workbench
-                problem={problem}
-                session={session}
-                onSave={save}
-                onGrade={grade}
-                onChat={mockApi.chat}
-              />
+              <Workbench problem={problem} session={session} onSave={save} onGrade={grade} />
             )}
             {view === 'history' && (
               <HistoryView
@@ -116,6 +111,9 @@ export default function App() {
           </main>
         </div>
       </div>
+      {user && view === 'work' && session?.results.length > 0 && (
+        <TutorChatModal session={session} onChat={mockApi.chat} />
+      )}
       {!user && <LoginModal onLogin={setUser} />}
     </>
   );

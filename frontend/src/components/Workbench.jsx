@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ResultPanel from './ResultPanel';
 
-export default function Workbench({ problem, session, onSave, onGrade, onChat }) {
+export default function Workbench({ problem, session, onSave, onGrade }) {
   const [answer, setAnswer] = useState(session?.answer || '');
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
@@ -73,15 +73,7 @@ export default function Workbench({ problem, session, onSave, onGrade, onChat })
       <div className="work-columns">
         <section className="column-slot">{result ? editor : detail}</section>
         <section className="column-slot">
-          {result ? (
-            <ResultPanel
-              result={result}
-              results={session.results}
-              onChat={(text) => onChat(text, result)}
-            />
-          ) : (
-            editor
-          )}
+          {result ? <ResultPanel result={result} results={session.results} /> : editor}
         </section>
       </div>
       {showRubric && (
