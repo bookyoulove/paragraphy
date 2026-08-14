@@ -169,8 +169,13 @@ function updateCanvasState() {
 
 // 좌/우 드로어를 드래그로 리사이즈한다. 클릭(짧은 이동)은 옆의 토글 버튼이 담당하므로
 // 여기서는 실제로 드래그가 시작된 경우에만 폭을 바꾸고, min/max로 무한 확장을 막는다.
-// 답안 작성 캔버스(.canvas-pane)는 CSS min-width로 항상 최소 폭을 보장한다.
-function setupResizeHandle(handle, panel, { min, max, side }) {
+// 답안 작성 캔버스(.canvas-pane)는 CSS min-width(CANVAS_MIN_WIDTH)로 항상 최소 폭을 보장하는데,
+// 그것만으로는 두 패널을 동시에 max까지 늘렸을 때 전체 폭이 뷰포트를 넘칠 수 있으므로
+// 매 순간 "반대쪽 패널의 현재 폭 + 캔버스 최소 폭 + 고정 chrome"을 뺀 나머지로 max를 동적으로도 제한한다.
+const CANVAS_MIN_WIDTH = 380;
+const WORKSPACE_CHROME_WIDTH = 56; // 토글 버튼 2개 + 리사이즈 핸들 2개의 고정 폭 합
+
+function setupResizeHandle(handle, panel, { min, max, side, otherPanel }) {
   if (!handle || !panel) return;
   let dragging = false;
   let startX = 0;
@@ -190,7 +195,13 @@ function setupResizeHandle(handle, panel, { min, max, side }) {
     if (!dragging) return;
     const delta = e.clientX - startX;
     const signedDelta = side === 'left' ? delta : -delta;
-    const newWidth = Math.min(max, Math.max(min, startWidth + signedDelta));
+    let newWidth = Math.min(max, Math.max(min, startWidth + signedDelta));
+    if (otherPanel) {
+      const workspaceWidth = workspace.getBoundingClientRect().width;
+      const otherWidth = otherPanel.getBoundingClientRect().width;
+      const dynamicMax = workspaceWidth - otherWidth - CANVAS_MIN_WIDTH - WORKSPACE_CHROME_WIDTH;
+      newWidth = Math.min(newWidth, Math.max(min, dynamicMax));
+    }
     panel.style.width = `${newWidth}px`;
   });
 
@@ -1086,16 +1097,20 @@ function bindEvents() {
     workspace.classList.toggle('drawer-collapsed');
   };
 
-  // 좌우 드로어 드래그 리사이즈 (무한 확장 방지 + 답안 캔버스는 CSS min-width로 항상 확보)
+  // 좌우 드로어 드래그 리사이즈 (무한 확장 방지 + 답안 캔버스는 항상 최소 폭 확보).
+  // otherPanel을 서로 알려줘서, 두 패널을 동시에 최대로 늘려도 합쳐서 뷰포트를
+  // 넘치지 않도록 동적으로도 제한한다 (정적 max만으로는 조합에 따라 넘칠 수 있음).
   setupResizeHandle(document.getElementById('problemResizeHandle'), document.getElementById('problemDrawer'), {
     min: 220,
-    max: 460,
+    max: 552,
     side: 'left',
+    otherPanel: document.getElementById('resultDrawer'),
   });
   setupResizeHandle(document.getElementById('resultResizeHandle'), document.getElementById('resultDrawer'), {
     min: 300,
     max: 520,
     side: 'right',
+    otherPanel: document.getElementById('problemDrawer'),
   });
 
   document.addEventListener('keydown', (e) => {
