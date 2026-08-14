@@ -118,7 +118,7 @@ def insert_session_answer(
 
 
 @router.get("/{session_id}/answers/{answer_id}/grading")
-def analysis_answer(
+async def analysis_answer(
     session_id: UUID,
     answer_id: UUID,
     session: ValidSessionDep,
@@ -132,7 +132,7 @@ def analysis_answer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Answer not found.",
         )
-    res = agent.run(AnalysisRequest(user_answer=user_answer, problem=session.problem))
+    res = await agent.run(AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem))
 
     analysis_result_db.create(
         AnalysisResultCreate(

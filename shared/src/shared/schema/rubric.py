@@ -10,3 +10,6 @@ class RubricGenerationRequest(BaseModel):
 class Rubric(SQLModel):
     criteria: str = Field(max_length=256)
     description: str | None = None
+
+class RubricList(SQLModel):
+    rubrics: list[Rubric] = Field(min_length=1)    
