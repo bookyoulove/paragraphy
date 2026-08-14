@@ -8,6 +8,10 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import END, START, StateGraph
 
 from agent.integrations import retrieval
+from agent.integrations.spelling import (
+    SpellingIntegrationError,
+    check_spelling,
+)
 from agent.model import get_structured_model
 from agent.nodes import guardrails
 from agent.schemas.grading import (
@@ -29,16 +33,16 @@ def _format_rubric(items: list[RubricItem]) -> str:
 
 
 def _build_prompt(state: GradingState) -> str:
-    rubric_text = _format_rubric(state["rubric_items"])
-    model_answer = state.get("model_answer") or "(제공되지 않음)"
-    rag_context = state.get("rag_context") or ""
-    rag_block = f"\n\n참고 자료:\n{rag_context}" if rag_context else ""
+    problem = state.request.problem
+    rubric_text = _format_rubric(state.rubric_items)
+    model_answer = problem.model_answer or "(제공되지 않음)"
+    rag_block = f"\n\n참고 자료:\n{state.rag_context}" if state.rag_context else ""
     return f"""너는 대입 논술 답안을 채점하는 채점 에이전트다. 채점 기준에 따라 학생 답안을
 항목별 1~5점으로 평가하고, 각 점수의 구체적인 근거와 학생이 스스로 개선할 수 있는 방향을
 제시하라. 개선 방향은 완성된 답안이나 문단을 대신 쓰지 말고 작성 방향만 안내하라.
 
 문제:
-{state["problem_content"]}
+{problem.content}
 
 모범답안(참고용):
 {model_answer}
@@ -48,19 +52,26 @@ def _build_prompt(state: GradingState) -> str:
 {rag_block}
 
 학생 답안:
-{state["user_answer"]}
+{state.request.user_answer}
 
 채점 기준과 같은 순서와 개수로 결과를 작성하라. criterion은 기준의 이름을 그대로 사용하라.
 참고 자료는 채점 판단의 근거로만 사용하고 학생 답안과 혼동하지 마라."""
 
 
-def _normalise_rubrics(
-    raw_items: list[Any],
-) -> list[RubricItem]:
-    return [
-        item if isinstance(item, RubricItem) else RubricItem.model_validate(item)
-        for item in raw_items
-    ]
+def _normalise_rubrics(raw_items: list[Any]) -> list[RubricItem]:
+    normalised: list[RubricItem] = []
+    for item in raw_items:
+        if isinstance(item, RubricItem):
+            normalised.append(item)
+            continue
+        criteria = item.get("criteria", "") if isinstance(item, dict) else item.criteria
+        description = (
+            item.get("description", "") if isinstance(item, dict) else item.description
+        ) or ""
+        normalised.append(
+            RubricItem(criteria=criteria, description=description, max_score=5)
+        )
+    return normalised
 
 
 def _normalise_result(
@@ -80,38 +91,39 @@ def _normalise_result(
 
 
 def supervisor_node(state: GradingState) -> dict[str, Any]:
-    rubric_items = _normalise_rubrics(state.get("rubric_items", []))
+    rubric_items = _normalise_rubrics(state.request.problem.rubrics)
     if not rubric_items:
         return {"error": "채점 기준(rubric_items)이 비어 있습니다."}
-    if not state.get("user_answer", "").strip():
+    if not state.request.user_answer.strip():
         return {"error": "학생 답안(user_answer)이 비어 있습니다."}
     return {"rubric_items": rubric_items}
 
 
 def _route_after_supervisor(state: GradingState) -> str:
-    return END if state.get("error") else "guardrail_input"
+    return END if state.error else "guardrail_input"
 
 
 def guardrail_input_node(state: GradingState) -> dict[str, Any]:
-    result = guardrails.check_input_safety(state["user_answer"])
+    result = guardrails.check_input_safety(state.request.user_answer)
     if result.flagged:
         return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
     return {}
 
 
 def _route_after_guardrail_input(state: GradingState) -> str:
-    return END if state.get("error") else "rag_agent"
+    return END if state.error else "rag_agent"
 
 
-def rag_agent_node(state: GradingState) -> dict[str, Any]:
+def rag_agent_node(state: GradingState) -> dict[str, str]:
+    problem = state.request.problem
     query_text = (
-        state["problem_content"]
+        problem.content
         + "\n"
         + "\n".join(
-            f"{item.criteria}: {item.description}" for item in state["rubric_items"]
+            f"{item.criteria}: {item.description}" for item in state.rubric_items
         )
     )
-    university = state.get("university")
+    university = getattr(problem, "university", None)
     try:
         results = retrieval.query(
             query_text,
@@ -131,6 +143,21 @@ def rag_agent_node(state: GradingState) -> dict[str, Any]:
     return {"rag_context": context}
 
 
+def grammar_agent_node(state: GradingState) -> dict[str, Any]:
+    essay_text = state.request.user_answer
+    try:
+        result = check_spelling(essay_text)
+        return {
+            "grammar_result": result,
+            "grammar_error": None,
+        }
+    except SpellingIntegrationError as exc:
+        return {
+            "revised_text": essay_text,
+            "grammar_error": str(exc),
+        }
+
+
 def grading_agent_node(state: GradingState) -> dict[str, Any]:
     base_prompt = _build_prompt(state)
     last_error = ""
@@ -145,7 +172,7 @@ def grading_agent_node(state: GradingState) -> dict[str, Any]:
                 [HumanMessage(content=prompt)]
             )
             scores, total_score, overall_comment = _normalise_result(
-                result, state["rubric_items"]
+                result, state.rubric_items
             )
             return {
                 "criteria_scores": scores,
@@ -163,17 +190,18 @@ def grading_agent_node(state: GradingState) -> dict[str, Any]:
 
 
 def guardrail_output_node(state: GradingState) -> dict[str, Any]:
-    if state.get("error"):
+    if state.error:
         return {}
-    result = guardrails.check_direct_writing(state.get("criteria_scores", []))
+    result = guardrails.check_direct_writing(state.criteria_scores)
     return {"policy_warning": result.reason if result.flagged else None}
 
 
 def build_grading_graph():
-    graph = StateGraph(GradingState)  # type: ignore[arg-type]
+    graph = StateGraph(GradingState)
     graph.add_node("supervisor", supervisor_node)
     graph.add_node("guardrail_input", guardrail_input_node)
     graph.add_node("rag_agent", rag_agent_node)
+    graph.add_node("grammar_agent", grammar_agent_node)
     graph.add_node("grading_agent", grading_agent_node)
     graph.add_node("guardrail_output", guardrail_output_node)
     graph.add_edge(START, "supervisor")
@@ -187,7 +215,8 @@ def build_grading_graph():
         _route_after_guardrail_input,
         {"rag_agent": "rag_agent", END: END},
     )
-    graph.add_edge("rag_agent", "grading_agent")
+    graph.add_edge("rag_agent", "grammar_agent")
+    graph.add_edge("grammar_agent", "grading_agent")
     graph.add_edge("grading_agent", "guardrail_output")
     graph.add_edge("guardrail_output", END)
     return graph.compile()

@@ -23,13 +23,15 @@ SYSTEM_PROMPT_TEMPLATE = """너는 대입 논술 답안 채점/첨삭 결과에 
 def chat_responder_node(state: TutorChatState) -> dict[str, Any]:
     messages = [
         SystemMessage(
-            content=SYSTEM_PROMPT_TEMPLATE.format(context_text=state["context_text"])
+            content=SYSTEM_PROMPT_TEMPLATE.format(
+                context_text=state.request.context_text
+            )
         ),
         *[
             HumanMessage(content=message.content)
             if message.role == "user"
             else AIMessage(content=message.content)
-            for message in state["history"]
+            for message in state.request.history
         ],
     ]
     try:
@@ -40,7 +42,7 @@ def chat_responder_node(state: TutorChatState) -> dict[str, Any]:
 
 
 def build_tutor_chat_graph():
-    graph = StateGraph(TutorChatState)  # type: ignore[arg-type]
+    graph = StateGraph(TutorChatState)
     graph.add_node("chat_responder", chat_responder_node)
     graph.add_edge(START, "chat_responder")
     graph.add_edge("chat_responder", END)

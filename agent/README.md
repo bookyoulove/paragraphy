@@ -16,8 +16,17 @@ src/agent/
 ## 계약과 환경 설정
 
 백엔드와 에이전트 사이의 공개 입출력 계약은 `shared.schema`와
-`shared.protocol`을 직접 사용합니다. 내부 LangGraph 상태와 structured output용
-세부 모델은 이 패키지의 `schemas/`에 둡니다.
+`shared.protocol`을 직접 사용합니다. 내부 LangGraph 상태도 `TypedDict`가 아니라
+Pydantic `BaseModel`로 두며, 각 state의 `request` 필드에 shared 또는 agent 입력
+계약을 보유합니다. RAG 컨텍스트와 노드별 결과는 state의 나머지 필드로 누적합니다.
+structured output용 세부 모델은 이 패키지의 `schemas/`에 둡니다. 그래프를 직접 호출할
+때도 개별 필드를 평평하게 넘기지 않고 다음처럼 `request`에 입력 계약을 넣습니다.
+
+```python
+await grading_app.ainvoke({"request": analysis_request})
+await rubric_app.ainvoke({"request": rubric_generation_request})
+await feedback_app.ainvoke({"request": FeedbackInput(essay_text=text)})
+```
 
 모델 게이트웨이는 OpenAI-compatible API로 연결합니다. `.env`에 다음을 설정합니다.
 
@@ -43,22 +52,25 @@ feedback graph를 하나의 실행 경로로 합치는 작업은 아직 별도 �
 bareunpy protobuf 응답의 `CorrectErrorResponse` 필드는 `GrammarResult`와 거의
 같습니다.
 
-| 항목                  | bareunpy Python SDK                                                                                                          | `shared.schema.grammar` | 현재 처리                 |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------- |
-| 응답 전체             | `origin`, `revised`, `revised_blocks`, `whitespace_cleanup_ranges`, `revised_sentences`, `helps`, `language`, `tokens_count` | 동일한 필드             | Pydantic 모델로 변환      |
-| `RevisedBlock.origin` | `TextSpan(content, begin_offset, length)`                                                                                    | `str`                   | `TextSpan.content`를 사용 |
-| `Revision`            | `revised`, `score`, `category`, `help_id`                                                                                    | 동일한 필드             | enum 값을 변환            |
-| `ReviseHelp`          | `id`, `category`, `comment`, `examples`, `rule_article`                                                                      | 동일한 필드             | map value를 변환          |
-| `CleanUpRange`        | `offset`, `length`, 중첩 enum `position`                                                                                     | 동일한 필드/값          | enum 값을 변환            |
+| 항목                  | bareunpy Python SDK                                                                                                          | `shared.schema.grammar` | 현재 처리                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------- |
+| 응답 전체             | `origin`, `revised`, `revised_blocks`, `whitespace_cleanup_ranges`, `revised_sentences`, `helps`, `language`, `tokens_count` | 동일한 필드             | Pydantic 모델로 변환                                  |
+| `RevisedBlock.origin` | `str` (현재 `Corrector` Python 응답에서 관찰됨; 저수준 protobuf는 `TextSpan`일 수 있음)                                      | `str`                   | 문자열을 우선 사용하고 `TextSpan.content`도 호환 처리 |
+| `Revision`            | `revised`, `score`, `category`, `help_id`                                                                                    | 동일한 필드             | enum 값을 변환                                        |
+| `ReviseHelp`          | `id`, `category`, `comment`, `examples`, `rule_article`                                                                      | 동일한 필드             | map value를 변환                                      |
+| `CleanUpRange`        | `offset`, `length`, 중첩 enum `position`                                                                                     | 동일한 필드/값          | enum 값을 변환                                        |
 
-따라서 현재 확인된 실질적인 차이는 `TextSpan` 래퍼입니다. `begin_offset`과
-`length`를 이후 UI나 문장 단위 diff에서 사용해야 한다면, `shared.schema.grammar`
-의 `RevisedBlock`에 별도 span 필드를 추가하거나 origin을 별도 모델로 확장해야
-합니다. 지금은 기존 shared 계약을 보존하기 위해 content 문자열만 사용합니다.
+현재 `Corrector` Python SDK에서 관찰한 응답은 `origin: str`이므로 `shared`의
+`origin: str`와 직접 호환됩니다. 다만 저수준 protobuf 정의가 `TextSpan`인 버전이나
+API를 직접 다루는 경로에서는 `begin_offset`과 `length`가 존재할 수 있습니다. 이후
+UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.grammar`를 span 모델로
+확장하면 됩니다.
 
 `RevisionCategory.GRAMMER`처럼 SDK와 shared에 함께 존재하는 명칭의 오탈자는 지금
 그대로 매핑됩니다. 공용 스키마에서 이름을 고칠 때는 저장된 JSON과 API 호환성
 마이그레이션을 함께 검토해야 합니다.
+
+-> TextSpan을 구현함
 
 ### 에이전트 내부 structured output과 shared 계약의 차이
 
@@ -82,8 +94,9 @@ bareunpy protobuf 응답의 `CorrectErrorResponse` 필드는 `GrammarResult`와 
   게이트웨이에서 지원되는지 확인해야 합니다. 게이트웨이가 JSON Schema 방식을
   지원하지 않으면 `agent/model.py`에서 `method="function_calling"`으로 바꾸는
   선택을 검토합니다.
-- bareun 응답에서 `origin`이 항상 `TextSpan.content`인지, nested block에도 동일한
-  구조가 적용되는지 실제 샘플로 확인해야 합니다.
+- 현재 확인한 bareun Python SDK의 `origin: str` 응답이 사용하는 SDK 버전에서
+  계속 유지되는지, nested block에도 동일한 구조가 적용되는지 버전 업그레이드 때
+  회귀 확인해야 합니다.
 - `shared.schema.grammar`의 span offset이 필요해지는 시점에 위 계약을 확장합니다.
 - Chroma 데이터가 필요하면 `agent/chroma_data`가 생성되며, 배포 환경에서는 해당
   디렉터리의 영속 볼륨과 인덱스 시드를 별도로 준비해야 합니다.

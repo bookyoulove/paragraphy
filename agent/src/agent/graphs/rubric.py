@@ -18,7 +18,7 @@ RAG_TOP_K = 6
 def rag_agent_node(state: RubricState) -> dict[str, str]:
     try:
         results = retrieval.query(
-            state["content"], n_results=RAG_TOP_K, where={"source": "국립국어원"}
+            state.request.content, n_results=RAG_TOP_K, where={"source": "국립국어원"}
         )
     except Exception:
         results: list[retrieval.RetrievedChunk] = []
@@ -31,14 +31,14 @@ def rag_agent_node(state: RubricState) -> dict[str, str]:
 
 
 def _build_prompt(state: RubricState) -> str:
-    model_answer = state.get("model_answer") or "(제공되지 않음)"
-    rag_context = state.get("rag_context") or "(참고자료 없음)"
+    model_answer = state.request.model_answer or "(제공되지 않음)"
+    rag_context = state.rag_context or "(참고자료 없음)"
     return f"""너는 대입 논술 문제의 채점 기준을 설계하는 Rubric Agent다. 문제의 성격과 모범답안을
 참고해 사용자가 수정할 수 있는 초안 루브릭을 제안하라. 각 항목의 max_score는 5로 고정한다.
 description에는 1~5점 수준을 판단하는 핵심 기준을 한두 문장으로 작성하라.
 
 문제:
-{state["content"]}
+{state.request.content}
 
 모범답안:
 {model_answer}
@@ -77,7 +77,7 @@ def rubric_agent_node(state: RubricState) -> dict[str, Any]:
 
 
 def build_rubric_graph():
-    graph = StateGraph(RubricState)  # type: ignore[arg-type]
+    graph = StateGraph(RubricState)
     graph.add_node("rag_agent", rag_agent_node)
     graph.add_node("rubric_agent", rubric_agent_node)
     graph.add_edge(START, "rag_agent")

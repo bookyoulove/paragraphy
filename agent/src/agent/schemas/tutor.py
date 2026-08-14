@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
-from typing_extensions import TypedDict
+from pydantic import BaseModel, Field
 
 
 class ChatMessage(BaseModel):
@@ -15,7 +14,7 @@ class ChatMessage(BaseModel):
 
 class TutorChatInput(BaseModel):
     context_text: str
-    history: list[ChatMessage]
+    history: list[ChatMessage] = Field(default_factory=list)
 
 
 class TutorChatOutput(BaseModel):
@@ -23,8 +22,7 @@ class TutorChatOutput(BaseModel):
     error: str | None = None
 
 
-class TutorChatState(TypedDict, total=False):
-    context_text: str
-    history: list[ChatMessage]
-    reply: str
-    error: str | None
+class TutorChatState(BaseModel):
+    request: TutorChatInput
+    reply: str = ""
+    error: str | None = None

@@ -75,9 +75,11 @@ def _get_corrector() -> Any:
 
 
 def _convert_block(block: Any) -> RevisedBlock:
+    # Corrector의 Python 응답은 origin을 str로 노출한다. 저수준 protobuf 응답처럼
+    # TextSpan으로 노출되는 버전도 받아 shared 계약의 문자열로 정규화한다.
+    origin = block.origin if isinstance(block.origin, str) else block.origin.content
     return RevisedBlock(
-        # bareunpy의 origin은 TextSpan protobuf이고 shared 계약은 문자열이다.
-        origin=block.origin.content,
+        origin=origin,
         revised=block.revised,
         revisions=[
             Revision(

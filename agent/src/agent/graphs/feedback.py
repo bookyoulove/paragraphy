@@ -27,20 +27,21 @@ RAG_TOP_K = 3
 
 
 def guardrail_input_node(state: FeedbackState) -> dict[str, Any]:
-    result = guardrails.check_input_safety(state["essay_text"])
+    result = guardrails.check_input_safety(state.request.essay_text)
     if result.flagged:
         return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
     return {}
 
 
 def _route_after_guardrail_input(state: FeedbackState) -> str:
-    return END if state.get("error") else "spelling_agent"
+    return END if state.error else "spelling_agent"
 
 
 def spelling_agent_node(state: FeedbackState) -> dict[str, Any]:
-    essay_text = state["essay_text"]
+    essay_text = state.request.essay_text
     try:
         result = check_spelling(essay_text)
+        print(result)
         return {
             "grammar_result": result,
             "revised_text": result.revised,
@@ -56,6 +57,7 @@ def spelling_agent_node(state: FeedbackState) -> dict[str, Any]:
             "spelling_error": None,
         }
     except SpellingIntegrationError as exc:
+        print(exc)
         return {
             "revised_text": essay_text,
             "spelling_corrections": [],
@@ -64,7 +66,7 @@ def spelling_agent_node(state: FeedbackState) -> dict[str, Any]:
 
 
 def _build_polish_prompt(state: FeedbackState, rag_context: str) -> str:
-    corrections = state.get("spelling_corrections") or []
+    corrections = state.spelling_corrections
     corrections_text = (
         "\n".join(
             f"- '{item.original}' → '{item.revised}' ({item.category}: {item.comment})"
@@ -78,7 +80,7 @@ def _build_polish_prompt(state: FeedbackState, rag_context: str) -> str:
 제안 목록을 비워라. 학생 답안을 완성해 주지 말고, 스스로 고칠 수 있는 방향을 제시하라.
 
 원문:
-{state["essay_text"]}
+{state.request.essay_text}
 
 이미 처리된 맞춤법 교정(중복 지적 금지):
 {corrections_text}
@@ -123,7 +125,7 @@ def polish_agent_node(state: FeedbackState) -> dict[str, Any]:
 
 
 def build_feedback_graph():
-    graph = StateGraph(FeedbackState)  # type: ignore[arg-type]
+    graph = StateGraph(FeedbackState)
     graph.add_node("guardrail_input", guardrail_input_node)
     graph.add_node("spelling_agent", spelling_agent_node)
     graph.add_node("polish_agent", polish_agent_node)

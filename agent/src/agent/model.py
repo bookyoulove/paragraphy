@@ -8,10 +8,11 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
 
 from langchain.chat_models import init_chat_model
+from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
 from agent.config import settings
@@ -41,11 +42,13 @@ def get_chat_model() -> BaseChatModel:
     )
 
 
-def get_structured_model[T: BaseModel](schema: type[T]) -> Any:
+def get_structured_model[T: BaseModel](
+    schema: type[T],
+) -> Runnable[LanguageModelInput, T]:
     """주어진 Pydantic schema로 구조화 출력을 활성화한 모델을 반환한다.
 
     JSON을 시스템 프롬프트로 지시하거나 응답 텍스트를 직접 파싱하지 않는다.
     LangChain이 provider의 structured output 기능(JSON Schema/tool calling)을
     이용해 결과를 schema로 검증한다.
     """
-    return get_chat_model().with_structured_output(schema)
+    return get_chat_model().with_structured_output(schema)  # type: ignore
