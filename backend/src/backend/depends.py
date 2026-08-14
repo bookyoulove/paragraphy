@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
+from agent import AnalysisAgent, RubricAgent
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from shared.protocol import AnalysisAgentProtocol, RubricAgentProtocol
@@ -41,8 +42,13 @@ def get_current_user_id(user_db: UserDBDep, username: AuthDep):
 UserUUIDDep = Annotated[UUID, Depends(get_current_user_id)]
 
 
-def get_rubric_agent() -> RubricAgentProtocol: ...
-def get_analysis_agent() -> AnalysisAgentProtocol: ...
+def get_rubric_agent() -> RubricAgentProtocol:
+    return RubricAgent()
+
+
+def get_analysis_agent() -> AnalysisAgentProtocol:
+    return AnalysisAgent()
+    
 
 
 RubricAgentDep = Annotated[RubricAgentProtocol, Depends(get_rubric_agent)]

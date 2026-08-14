@@ -28,13 +28,14 @@ def problem_list(
     return problem_db.get_criteria(user_id, criteria)
 
 
-@router.post("/rubric-gen", response_model=RubricDraft)
-def rubric_gen(
+@router.post("/rubric-gen", response_model=list[RubricDraft])
+async def rubric_gen(
     request: RubricGenerationRequest,
     user_id: UserUUIDDep,
     agent: RubricAgentDep,
 ):
-    return agent.run(request)
+    rubric_list = await agent.run(request)
+    return rubric_list.rubrics
 
 
 @router.post("/custom", response_model=ProblemPublicWithRubrics)

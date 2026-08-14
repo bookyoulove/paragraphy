@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "agent",
     "fastapi[standard]>=0.141.1",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
@@ -28,6 +29,7 @@ ignore = ["UP037", "UP045"]
 
 [tool.uv.sources]
 shared = { path = "../shared", editable = true }
+agent = { path = "../agent", editable = true }
 
 [tool.pyrefly]
 project-includes = ["../shared/**/*.py"]
