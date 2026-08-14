@@ -1,0 +1,35 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "dhnam", email = "dhnam0502@naver.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "agent",
+    "fastapi[standard]>=0.141.1",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    "shared",
+    "sqlmodel>=0.0.39",
+    "tzdata>=2026.3",
+]
+
+[project.scripts]
+backend = "backend:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff.lint]
+ignore = ["UP037", "UP045"]
+
+[tool.uv.sources]
+shared = { path = "../shared", editable = true }
+agent = { path = "../agent", editable = true }
+
+[tool.pyrefly]
+project-includes = ["../shared/**/*.py"]
