@@ -1,10 +1,14 @@
 from typing import Annotated
 from uuid import UUID
 
-from agent import AnalysisAgent, RubricAgent
+from agent import AnalysisAgent, RubricAgent, TutorChatAgent
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from shared.protocol import AnalysisAgentProtocol, RubricAgentProtocol
+from shared.protocol import (
+    AnalysisAgentProtocol,
+    RubricAgentProtocol,
+    TutorChatAgentProtocol,
+)
 
 from backend.orm.crud import (
     CRUDAnalysisResult,
@@ -48,9 +52,14 @@ def get_rubric_agent() -> RubricAgentProtocol:
 
 def get_analysis_agent() -> AnalysisAgentProtocol:
     return AnalysisAgent()
-    
+
+
+def get_tutor_chat_agent() -> TutorChatAgentProtocol:
+    return TutorChatAgent()
 
 
 RubricAgentDep = Annotated[RubricAgentProtocol, Depends(get_rubric_agent)]
 
 AnalysisAgentDep = Annotated[AnalysisAgentProtocol, Depends(get_analysis_agent)]
+
+TutorChatAgentDep = Annotated[TutorChatAgentProtocol, Depends(get_tutor_chat_agent)]
