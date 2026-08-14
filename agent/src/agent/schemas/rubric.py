@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
+from shared.schema.rubric import RubricGenerationRequest
 
 
 class RubricSuggestion(BaseModel):
@@ -16,14 +16,8 @@ class RubricGenerationOutput(BaseModel):
     rubrics: list[RubricSuggestion] = Field(min_length=1)
 
 
-class RubricGenerationInput(BaseModel):
-    content: str
-    model_answer: str | None = None
-
-
-class RubricState(TypedDict, total=False):
-    content: str
-    model_answer: str | None
-    rag_context: str
-    rubrics: list[RubricSuggestion]
-    error: str | None
+class RubricState(BaseModel):
+    request: RubricGenerationRequest
+    rag_context: str = ""
+    rubrics: list[RubricSuggestion] = Field(default_factory=list)
+    error: str | None = None
