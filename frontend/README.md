@@ -1,6 +1,6 @@
 # Paragraphy React Frontend
 
-`frontend_old/`의 화면 구조를 React 컴포넌트로 옮긴 프론트엔드입니다.
+기존 화면 구조를 React 컴포넌트로 옮긴 독립 실행형 프론트엔드입니다.
 
 ```bash
 npm install
