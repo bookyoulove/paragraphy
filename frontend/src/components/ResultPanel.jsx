@@ -1,33 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-const initialMessages = [
-  {
-    role: 'assistant',
-    text: '세션을 시작하고 채점을 완료하면 Tutor에게 채점 결과에 대해 질문할 수 있습니다.',
-  },
-];
-
-export default function ResultPanel({ result, results, onChat }) {
+export default function ResultPanel({ result, results }) {
   const [tab, setTab] = useState('grade');
-  const [messages, setMessages] = useState(initialMessages);
-  const [question, setQuestion] = useState('');
-  const [waiting, setWaiting] = useState(false);
-  useEffect(() => {
-    if (result)
-      setMessages([
-        { role: 'assistant', text: '채점이 완료되었습니다! 궁금한 점을 Tutor에게 물어보세요.' },
-      ]);
-  }, [result]);
-  const send = async () => {
-    if (!question.trim()) return;
-    const text = question.trim();
-    setQuestion('');
-    setMessages((old) => [...old, { role: 'user', text }]);
-    setWaiting(true);
-    const reply = await onChat(text);
-    setMessages((old) => [...old, { role: 'assistant', text: reply }]);
-    setWaiting(false);
-  };
   const pct = result ? Math.round((result.score / result.totalMax) * 100) : 0;
   return (
     <aside className="right-panel">
@@ -35,7 +9,6 @@ export default function ResultPanel({ result, results, onChat }) {
         {[
           ['grade', '채점 결과'],
           ['proof', '첨삭 목록'],
-          ['chat', 'Tutor Chat'],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -141,38 +114,6 @@ export default function ResultPanel({ result, results, onChat }) {
               </div>
             </>
           )}
-        </div>
-        <div className={`tab-panel ${tab === 'chat' ? 'active' : ''}`}>
-          <div className="chat-messages">
-            {messages.map((message, index) => (
-              <div
-                className={`chat-box ${message.role === 'assistant' ? 'chat-assistant' : 'chat-user'}`}
-                key={`${message.role}-${index}`}
-              >
-                <div className={`chat-badge ${message.role === 'assistant' ? 'assistant' : ''}`}>
-                  {message.role === 'assistant' ? 'AI' : '나'}
-                </div>
-                <div className="chat-msg">{message.text}</div>
-              </div>
-            ))}
-            {waiting && (
-              <div className="chat-box chat-assistant">
-                <div className="chat-badge assistant">AI</div>
-                <div className="chat-msg">Tutor가 답변을 생각하고 있어요...</div>
-              </div>
-            )}
-          </div>
-          <div className="chat-input-wrap">
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder="Tutor에게 질문하기"
-            />
-            <button className="primary-btn small-btn" disabled={waiting} onClick={send}>
-              전송
-            </button>
-          </div>
         </div>
       </div>
     </aside>
