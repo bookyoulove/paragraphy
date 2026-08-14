@@ -1,0 +1,20 @@
+@import './styles/legacy.css';
+
+/* React 화면의 작은 보완 스타일 */
+.problem-text {
+  white-space: pre-wrap;
+}
+.chat-msg {
+  white-space: pre-wrap;
+}
+@media (max-width: 900px) {
+  .work-columns {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    width: 160px;
+  }
+  .topbar-meta {
+    display: none;
+  }
+}
