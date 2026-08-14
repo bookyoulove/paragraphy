@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisResult, AnalysisSession, Problem, UserAnswer
+from backend.orm.models import AnalysisResults, AnalysisSessions, Problems, UserAnswers
 
 
 class ChatToolError(ValueError):
@@ -40,26 +40,31 @@ class FeedbackContext:
 
 def load_feedback_context(db: Session, result_id: str) -> FeedbackContext:
     """get_feedback + get_problem_index + get_model_answer를 한 번에 수행."""
-    result = db.query(AnalysisResult).filter(AnalysisResult.result_id == result_id).one_or_none()
+    result = db.get(AnalysisResults, result_id)
     if result is None:
         raise ChatToolError(f"채점 결과를 찾을 수 없습니다: {result_id}")
 
-    answer = db.query(UserAnswer).filter(UserAnswer.answer_id == result.answer_id).one()
-    session = db.query(AnalysisSession).filter(AnalysisSession.session_id == answer.session_id).one()
-    problem = db.query(Problem).filter(Problem.problem_id == session.problem_id).one()
+    answer = db.get(UserAnswers, result.answer_id)
+    if answer is None:
+        raise ChatToolError(f"학생 답안을 찾을 수 없습니다: {result.answer_id}")
+    session = db.get(AnalysisSessions, answer.session_id)
+    if session is None:
+        raise ChatToolError(f"분석 세션을 찾을 수 없습니다: {answer.session_id}")
+    problem = db.get(Problems, session.problem_id)
+    if problem is None:
+        raise ChatToolError(f"문제를 찾을 수 없습니다: {session.problem_id}")
 
-    agent_results = result.agent_results or {}
     return FeedbackContext(
-        answer_id=answer.answer_id,
-        session_id=session.session_id,
-        user_id=session.user_id,
+        answer_id=str(answer.id),
+        session_id=str(session.id),
+        user_id=str(session.user_id),
         problem_title=problem.title,
         problem_content=problem.content,
         model_answer=problem.model_answer,
         user_answer=answer.user_answer,
-        criteria_scores=result.scores,
-        overall_comment=agent_results.get("overall_comment"),
-        corrections=result.corrections,
+        criteria_scores=[score.model_dump() for score in result.criteria_scores],
+        overall_comment=result.overall_comment,
+        corrections=None,
     )
 
 
@@ -75,9 +80,13 @@ def format_context_for_prompt(ctx: FeedbackContext) -> str:
     corrections_lines = []
     if ctx.corrections:
         for sc in ctx.corrections.get("spelling_corrections", []) or []:
-            corrections_lines.append(f"- (맞춤법) '{sc.get('original')}' → '{sc.get('revised')}' ({sc.get('comment')})")
+            corrections_lines.append(
+                f"- (맞춤법) '{sc.get('original')}' → '{sc.get('revised')}' ({sc.get('comment')})"
+            )
         for ps in ctx.corrections.get("polish_suggestions", []) or []:
-            corrections_lines.append(f"- (윤문) '{ps.get('original')}' → '{ps.get('suggestion')}' ({ps.get('reason')})")
+            corrections_lines.append(
+                f"- (윤문) '{ps.get('original')}' → '{ps.get('suggestion')}' ({ps.get('reason')})"
+            )
     corrections_text = "\n".join(corrections_lines) or "(첨삭 결과 없음)"
 
     return f"""[문제] {ctx.problem_title}
