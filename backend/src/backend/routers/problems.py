@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[ProblemPublic])
-def problem_list(
+def get_problem_list(
     criteria: Annotated[Criteria, Query()],
     user_id: UserUUIDDep,
     problem_db: ProblemDBDep,
@@ -29,7 +29,7 @@ def problem_list(
 
 
 @router.post("/rubric-gen", response_model=list[RubricDraft])
-async def rubric_gen(
+async def generate_rubric(
     request: RubricGenerationRequest,
     user_id: UserUUIDDep,
     agent: RubricAgentDep,
