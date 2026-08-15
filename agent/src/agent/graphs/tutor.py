@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -9,6 +10,8 @@ from langgraph.graph import END, START, StateGraph
 
 from agent.model import get_chat_model
 from agent.schemas.tutor import TutorChatState
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """너는 대입 논술 답안 채점/첨삭 결과에 대한 학생의 후속 질문에 답하는 Tutor Chat
 에이전트다. 아래는 이 학생의 최근 채점·첨삭 결과다.
@@ -38,6 +41,7 @@ def chat_responder_node(state: TutorChatState) -> dict[str, Any]:
         response = get_chat_model().invoke(messages)
         return {"reply": str(response.content), "error": None}
     except Exception as exc:
+        logger.exception("Tutor model invocation failed")
         return {"reply": "", "error": str(exc)}
 
 

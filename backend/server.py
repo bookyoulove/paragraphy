@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
@@ -31,4 +32,13 @@ app.include_router(results.router)
 
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", reload=True)
+    project_root = Path(__file__).resolve().parents[1]
+    uvicorn.run(
+        "server:app",
+        reload=True,
+        reload_dirs=[
+            str(project_root / "backend"),
+            str(project_root / "agent"),
+            str(project_root / "shared"),
+        ],
+    )
