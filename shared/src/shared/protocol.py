@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from shared.schema.analysis import AnalysisRequest, AnalysisResult
 from shared.schema.rubric import RubricGenerationRequest, RubricList
+from shared.schema.tutor import TutorChatInput, TutorChatOutput
 
 
 class AgentProtocol[in_T: BaseModel, out_T: BaseModel](Protocol):
@@ -18,3 +19,6 @@ class RubricAgentProtocol(
 class AnalysisAgentProtocol(
     AgentProtocol[AnalysisRequest, AnalysisResult], Protocol
 ): ...
+
+
+class TutorChatAgentProtocol(AgentProtocol[TutorChatInput, TutorChatOutput], Protocol): ...

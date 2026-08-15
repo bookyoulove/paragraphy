@@ -35,8 +35,8 @@ export default function ResultPanel({ result, results }) {
                   </div>
                 </div>
                 <div className="score-text">
-                  <div className="score-title">채점 기준 적용</div>
-                  <div className="score-sub">{result.commentary}</div>
+                  <div className="score-title">항목별 채점 결과</div>
+                  <div className="score-sub">각 평가 항목의 근거와 개선 방향을 확인해 보세요.</div>
                 </div>
               </div>
               <div className="criteria-list">
@@ -51,17 +51,31 @@ export default function ResultPanel({ result, results }) {
                     <div className="bar">
                       <span style={{ width: `${(item.value / item.maxScore) * 100}%` }} />
                     </div>
+                    {(item.rationale || item.improvement) && (
+                      <div className="criteria-feedback">
+                        {item.rationale && (
+                          <p>
+                            <strong>평가</strong>
+                            {item.rationale}
+                          </p>
+                        )}
+                        {item.improvement && (
+                          <p>
+                            <strong>개선 제안</strong>
+                            {item.improvement}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-              <div className="checklist-box">
-                <div className="checklist-title">수정 방향성</div>
-                <ul>
-                  {result.suggestions.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+              {result.commentary && (
+                <div className="checklist-box">
+                  <div className="checklist-title">종합 코멘트</div>
+                  <p className="overall-comment">{result.commentary}</p>
+                </div>
+              )}
               {results.length > 1 && (
                 <div className="compare-section">
                   <div className="compare-title">채점 비교</div>

@@ -27,8 +27,13 @@ class GradingOutput(BaseModel):
     criteria_scores: list[CriterionScore] = Field(default_factory=list)
     total_score: float = 0
     overall_comment: str = ""
-    grammar_errors: list[dict[str, Any]] = Field(default_factory=list)
+    grammar_errors: list[GrammarError] = Field(default_factory=list)
 
+class GrammarError(BaseModel):
+    type: str
+    before: str
+    after: str
+    note: str
 
 def _empty_grammar_result() -> GrammarResult:
     return GrammarResult(

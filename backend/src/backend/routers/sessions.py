@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from shared.schema.analysis import AnalysisRequest, AnalysisResult
+from shared.schema.analysis import AnalysisRequest
 
 from backend.depends import (
     AnalysisAgentDep,
@@ -15,7 +15,11 @@ from backend.depends import (
     UserUUIDDep,
 )
 from backend.orm.models import AnalysisSessions
-from backend.schema.analysis_result import AnalysisResultCreate
+from backend.schema.analysis_result import (
+    AnalysisResultCreate,
+    AnalysisResultPublic,
+    AnalysisResultUpdate,
+)
 from backend.schema.analysis_session import (
     AnalysisSessionCreate,
     AnalysisSessionPublicWithProblem,
@@ -125,26 +129,36 @@ async def analysis_answer(
     user_answer_db: UserAnswerDBDep,
     analysis_result_db: AnalysisResultDBDep,
     agent: AnalysisAgentDep,
-) -> AnalysisResult:
+) -> AnalysisResultPublic:
     user_answer = user_answer_db.get(answer_id)
     if not user_answer or user_answer.session_id != session_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Answer not found.",
         )
-    res = await agent.run(AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem))
+    res = await agent.run(
+        AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem)
+    )
 
-    analysis_result_db.create(
+    if user_answer.analysis_result:
+        analysis_result_db.update(
+            user_answer.analysis_result.id,
+            AnalysisResultUpdate(
+                **res.model_dump(),
+            ),
+        )
+        return user_answer.analysis_result
+    res_db = analysis_result_db.create(
         AnalysisResultCreate(
             answer_id=answer_id,
             **res.model_dump(),
         )
     )
-    return res
+    return res_db
 
 
 @router.get("/", response_model=list[AnalysisSessionPublicWithProblem])
-def get_sessions(user_id: UserUUIDDep, session_db: AnalysisSessionDBDep):
+def get_session_list(user_id: UserUUIDDep, session_db: AnalysisSessionDBDep):
     return session_db.get_by_user(user_id)
 
 

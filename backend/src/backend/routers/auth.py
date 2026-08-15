@@ -19,7 +19,7 @@ class Token(BaseModel):
 
 
 @router.post("/login")
-async def token(
+async def get_login_token(
     payload: Annotated[OAuth2PasswordRequestForm, Depends()],
     user_db: UserDBDep,
 ) -> Token:

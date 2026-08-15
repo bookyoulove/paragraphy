@@ -7,6 +7,8 @@ npm install
 npm run dev
 ```
 
+백엔드가 다른 주소에서 실행 중이면 `.env` 파일을 만들고 `VITE_API_BASE_URL`을 설정합니다. 기본값은 `http://127.0.0.1:8000`입니다.
+
 ## 구성
 
 - `src/components/`: 랜딩, 로그인, 문제 선택, 에디터, 결과, 기록 화면 컴포넌트

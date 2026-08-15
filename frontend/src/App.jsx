@@ -8,6 +8,7 @@ import CustomProblemForm from './components/CustomProblemForm';
 import Workbench from './components/Workbench';
 import HistoryView from './components/HistoryView';
 import TutorChatModal from './components/TutorChatModal';
+import { api } from './api/client';
 import { mockApi } from './mocks/api';
 
 export default function App() {
@@ -18,29 +19,35 @@ export default function App() {
   const [problem, setProblem] = useState(null);
   const [session, setSession] = useState(null);
   const [sessions, setSessions] = useState([]);
-  const refresh = async () => setProblems(await mockApi.getProblems());
+  const refresh = async () => setProblems(await api.getProblems());
   useEffect(() => {
-    refresh();
-  }, []);
+    if (!user) return;
+    Promise.all([api.getProblems(), api.getSessions()]).then(([loadedProblems, loadedSessions]) => {
+      setProblems(loadedProblems);
+      setSessions(loadedSessions);
+    });
+  }, [user]);
   const select = async (next) => {
-    setProblem(next);
-    setSession(await mockApi.createSession(next));
+    const createdSession = await api.createSession(next);
+    setProblem(createdSession.problem);
+    setSession(createdSession);
     setView('work');
   };
   const save = async (answer) => {
     if (!session) return;
-    const updated = await mockApi.saveAnswer(session, answer);
-    setSession({ ...updated });
-    setSessions(await mockApi.getSessions());
+    const updated = await api.saveAnswer(session, answer);
+    setSession(updated);
+    setSessions(await api.getSessions());
+    return updated;
   };
-  const grade = async () => {
-    if (!session) return;
-    const updated = await mockApi.grade(session);
-    setSession((old) => ({ ...old, results: [...old.results.slice(0, -1), updated] }));
-    setSessions(await mockApi.getSessions());
+  const grade = async (sessionToGrade) => {
+    if (!sessionToGrade) return;
+    const updated = await api.grade(sessionToGrade);
+    setSession({ ...sessionToGrade, results: [...sessionToGrade.results, updated] });
+    setSessions(await api.getSessions());
   };
   const create = async (form) => {
-    const created = await mockApi.createProblem(form);
+    const created = await api.createProblem(form);
     await refresh();
     await select(created);
   };
@@ -51,11 +58,21 @@ export default function App() {
         <header className="topbar">
           <Brand />
           <div className="topbar-right">
-            <div className="topbar-meta">논술 채점 · 첨삭 · 샘플 모드</div>
+            <div className="topbar-meta">논술 채점 · 첨삭</div>
             {user && (
               <div className="topbar-user">
                 <span>{user.identifier}</span>
-                <button className="ghost-btn dark" onClick={() => setUser(null)}>
+                <button
+                  className="ghost-btn dark"
+                  onClick={() => {
+                    api.clearToken();
+                    setUser(null);
+                    setProblem(null);
+                    setSession(null);
+                    setSessions([]);
+                    setProblems([]);
+                  }}
+                >
                   전환
                 </button>
               </div>
@@ -69,9 +86,7 @@ export default function App() {
               <span className="current-problem-label">
                 {problem ? `${problem.title} — ${problem.meta.school}` : '선택된 문제가 없습니다.'}
               </span>
-              <span className="session-status">
-                {session ? `샘플 세션 ${session.id} 진행 중` : ''}
-              </span>
+              <span className="session-status">{session ? `세션 ${session.id} 진행 중` : ''}</span>
             </div>
             {view === 'pick-existing' && (
               <ProblemPicker
@@ -82,7 +97,7 @@ export default function App() {
               />
             )}
             {view === 'pick-custom' && (
-              <CustomProblemForm onGenerate={mockApi.generateRubric} onCreate={create} />
+              <CustomProblemForm onGenerate={api.generateRubric} onCreate={create} />
             )}
             {view === 'work' && (
               <Workbench problem={problem} session={session} onSave={save} onGrade={grade} />
@@ -91,8 +106,10 @@ export default function App() {
               <HistoryView
                 sessions={sessions}
                 onResume={(item) => {
-                  setProblem(item.problem);
-                  setSession(item);
+                  api.getSession(item.id).then((loaded) => {
+                    setProblem(loaded.problem);
+                    setSession(loaded);
+                  });
                   setView('work');
                 }}
               />
@@ -102,8 +119,10 @@ export default function App() {
                 sessions={sessions}
                 compareOnly
                 onResume={(item) => {
-                  setProblem(item.problem);
-                  setSession(item);
+                  api.getSession(item.id).then((loaded) => {
+                    setProblem(loaded.problem);
+                    setSession(loaded);
+                  });
                   setView('work');
                 }}
               />
@@ -114,7 +133,11 @@ export default function App() {
       {user && view === 'work' && session?.results.length > 0 && (
         <TutorChatModal session={session} onChat={mockApi.chat} />
       )}
-      {!user && <LoginModal onLogin={setUser} />}
+      {!user && (
+        <LoginModal
+          onLogin={async ({ username, password }) => setUser(await api.login(username, password))}
+        />
+      )}
     </>
   );
 }

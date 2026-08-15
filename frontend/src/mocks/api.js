@@ -52,9 +52,27 @@ export const mockApi = {
       commentary:
         '핵심 쟁점을 잘 포착했습니다. 근거 사이의 인과관계를 한 단계 더 구체화하면 설득력이 높아집니다.',
       scores: [
-        { label: '쟁점 파악', value: 4, maxScore: 5 },
-        { label: '논리 전개', value: 3, maxScore: 5 },
-        { label: '근거와 표현', value: attempt === 1 ? 4 : 5, maxScore: 5 },
+        {
+          label: '쟁점 파악',
+          value: 4,
+          maxScore: 5,
+          rationale: '문제의 핵심 쟁점을 정확히 짚었습니다.',
+          improvement: '주장과 쟁점의 연결을 첫 문장에서 더 분명히 드러내 보세요.',
+        },
+        {
+          label: '논리 전개',
+          value: 3,
+          maxScore: 5,
+          rationale: '주장은 분명하지만 근거 사이의 인과관계가 다소 생략되어 있습니다.',
+          improvement: '각 근거가 결론을 어떻게 뒷받침하는지 연결 문장을 추가해 보세요.',
+        },
+        {
+          label: '근거와 표현',
+          value: attempt === 1 ? 4 : 5,
+          maxScore: 5,
+          rationale: '사례 선택과 표현이 전반적으로 자연스럽습니다.',
+          improvement: '반대 관점을 함께 검토하면 논증이 더욱 단단해집니다.',
+        },
       ],
       suggestions: [
         '정책 대안이 어떤 문제를 해결하는지 연결해 보세요.',
