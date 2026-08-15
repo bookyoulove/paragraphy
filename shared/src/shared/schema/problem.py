@@ -1,6 +1,5 @@
-from sqlmodel import Field, SQLModel
-
 from shared.schema.rubric import Rubric
+from sqlmodel import Field, SQLModel
 
 
 class ProblemContent(SQLModel):

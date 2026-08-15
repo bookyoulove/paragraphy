@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage
@@ -23,6 +24,8 @@ from agent.schemas.grading import (
 
 MAX_ATTEMPTS = 3
 RAG_TOP_K = 4
+
+logger = logging.getLogger(__name__)
 
 
 def _format_rubric(items: list[RubricItem]) -> str:
@@ -133,6 +136,7 @@ def rag_agent_node(state: GradingState) -> dict[str, str]:
         if not results and university:
             results = retrieval.query(query_text, n_results=RAG_TOP_K)
     except Exception:
+        logger.exception("Grading RAG retrieval failed")
         results: list[retrieval.RetrievedChunk] = []
 
     context = "\n\n---\n\n".join(
@@ -152,6 +156,7 @@ def grammar_agent_node(state: GradingState) -> dict[str, Any]:
             "grammar_error": None,
         }
     except SpellingIntegrationError as exc:
+        logger.exception("Grammar integration failed")
         return {
             "revised_text": essay_text,
             "grammar_error": str(exc),
@@ -182,6 +187,7 @@ def grading_agent_node(state: GradingState) -> dict[str, Any]:
                 "error": None,
             }
         except Exception as exc:
+            logger.exception("Grading model attempt %d failed", attempt)
             last_error = str(exc)
 
     return {
