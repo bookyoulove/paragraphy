@@ -1066,6 +1066,10 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f9fbfd;
 }
 .criteria-row {
   font-size: 12px;
@@ -1088,6 +1092,28 @@ textarea {
   border-radius: inherit;
 }
 
+.criteria-feedback {
+  display: grid;
+  gap: 5px;
+  padding-top: 2px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.criteria-feedback p,
+.overall-comment {
+  margin: 0;
+}
+
+.criteria-feedback strong {
+  display: inline-block;
+  min-width: 58px;
+  margin-right: 5px;
+  color: var(--text);
+  font-weight: 700;
+}
+
 .checklist-box {
   margin-top: 18px;
   background: #edf1f7;
@@ -1108,6 +1134,12 @@ textarea {
   color: var(--text);
   font-size: 12px;
   line-height: 1.7;
+}
+
+.overall-comment {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text);
 }
 
 .proof-count {
