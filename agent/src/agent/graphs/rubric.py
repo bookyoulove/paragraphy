@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage
@@ -14,6 +15,8 @@ from agent.schemas.rubric import RubricGenerationOutput, RubricState
 MAX_ATTEMPTS = 3
 RAG_TOP_K = 6
 
+logger = logging.getLogger(__name__)
+
 
 def rag_agent_node(state: RubricState) -> dict[str, str]:
     try:
@@ -21,6 +24,7 @@ def rag_agent_node(state: RubricState) -> dict[str, str]:
             state.request.content, n_results=RAG_TOP_K, where={"source": "국립국어원"}
         )
     except Exception:
+        logger.exception("Rubric RAG retrieval failed")
         results: list[retrieval.RetrievedChunk] = []
     context = "\n\n---\n\n".join(
         f"[{item['metadata'].get('doc_type', '')}"
@@ -68,6 +72,7 @@ def rubric_agent_node(state: RubricState) -> dict[str, Any]:
             ]
             return {"rubrics": rubrics, "error": None}
         except Exception as exc:
+            logger.exception("Rubric model attempt %d failed", attempt)
             last_error = str(exc)
 
     return {
