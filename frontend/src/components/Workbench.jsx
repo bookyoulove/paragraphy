@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ResultPanel from './ResultPanel';
 
 export default function Workbench({ problem, session, onSave, onGrade }) {
@@ -7,6 +7,10 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
   const result = session?.results.at(-1);
+  useEffect(() => {
+    setAnswer(session?.answer ?? '');
+    setSaved('');
+  }, [session?.id]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -23,9 +27,14 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
   };
   const grade = async () => {
     setGrading(true);
-    await onSave(answer);
-    await onGrade(answer);
-    setGrading(false);
+    try {
+      const savedSession = await onSave(answer);
+      await onGrade(savedSession);
+    } catch (err) {
+      setSaved(err.message || '채점 요청에 실패했습니다.');
+    } finally {
+      setGrading(false);
+    }
   };
   const editor = (
     <section className="answer-box">
