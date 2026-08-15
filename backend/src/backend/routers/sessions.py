@@ -15,7 +15,11 @@ from backend.depends import (
     UserUUIDDep,
 )
 from backend.orm.models import AnalysisSessions
-from backend.schema.analysis_result import AnalysisResultCreate, AnalysisResultPublic
+from backend.schema.analysis_result import (
+    AnalysisResultCreate,
+    AnalysisResultPublic,
+    AnalysisResultUpdate,
+)
 from backend.schema.analysis_session import (
     AnalysisSessionCreate,
     AnalysisSessionPublicWithProblem,
@@ -132,8 +136,18 @@ async def analysis_answer(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Answer not found.",
         )
-    res = await agent.run(AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem))
+    res = await agent.run(
+        AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem)
+    )
 
+    if user_answer.analysis_result:
+        analysis_result_db.update(
+            user_answer.analysis_result.id,
+            AnalysisResultUpdate(
+                **res.model_dump(),
+            ),
+        )
+        return user_answer.analysis_result
     res_db = analysis_result_db.create(
         AnalysisResultCreate(
             answer_id=answer_id,
