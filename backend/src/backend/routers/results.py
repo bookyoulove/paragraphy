@@ -1,6 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from shared.schema.analysis import AnalysisResult
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
@@ -12,7 +13,8 @@ from backend.depends import (
     TutorChatAgentDep,
     UserUUIDDep,
 )
-from backend.schema.chat_message import ChatMessageCreate
+from backend.orm.models import AnalysisResults
+from backend.schema.chat_message import ChatMessageCreate, ChatMessagePublic
 from backend.schema.chat_session import ChatSessionCreate
 
 router = APIRouter(
@@ -25,16 +27,9 @@ class UserMessage(BaseModel):
     content: str
 
 
-@router.post("/{result_id}/chat")
-async def chat_with_tutor(
-    result_id: UUID,
-    message: UserMessage,
-    user_id: UserUUIDDep,
-    result_db: AnalysisResultDBDep,
-    chat_session_db: ChatSessionDBDep,
-    chat_message_db: ChatMessageDBDep,
-    chat_agent: TutorChatAgentDep,
-) -> TutorChatOutput:
+def get_valid_result(
+    result_id: UUID, user_id: UserUUIDDep, result_db: AnalysisResultDBDep
+) -> AnalysisResults:
     result = result_db.get(result_id)
     if result is None:
         raise HTTPException(
@@ -45,6 +40,21 @@ async def chat_with_tutor(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to chat with this result",
         )
+    return result
+
+
+ValidResultDep = Annotated[AnalysisResults, Depends(get_valid_result)]
+
+
+@router.post("/{result_id}/chat")
+async def chat_with_tutor(
+    result_id: UUID,
+    message: UserMessage,
+    result: ValidResultDep,
+    chat_session_db: ChatSessionDBDep,
+    chat_message_db: ChatMessageDBDep,
+    chat_agent: TutorChatAgentDep,
+) -> TutorChatOutput:
     if not result.chat_session:
         chat_session = chat_session_db.create(ChatSessionCreate(result_id=result_id))
     else:
@@ -62,3 +72,17 @@ async def chat_with_tutor(
         ChatMessageCreate(chat_id=chat_session.id, role="assistant", content=res.reply)
     )
     return res
+
+
+@router.get("/{result_id}/chat", response_model=list[ChatMessagePublic])
+async def retrive_chat(
+    result_id: UUID,
+    result: ValidResultDep,
+):
+    if not result.chat_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No chat session found"
+        )
+
+    history = result.chat_session.chat_messages
+    return history

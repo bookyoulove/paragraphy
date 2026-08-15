@@ -9,6 +9,9 @@ class ChatMessageCreate(ChatMessageBase):
     chat_id: UUID
 
 
+class ChatMessagePublic(ChatMessageBase): ...
+
+
 class ChatMessageUpdate(BaseModel):
     role: str | None = None
     content: str | None = None
