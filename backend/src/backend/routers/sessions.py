@@ -158,7 +158,7 @@ async def analysis_answer(
 
 
 @router.get("/", response_model=list[AnalysisSessionPublicWithProblem])
-def get_sessions(user_id: UserUUIDDep, session_db: AnalysisSessionDBDep):
+def get_session_list(user_id: UserUUIDDep, session_db: AnalysisSessionDBDep):
     return session_db.get_by_user(user_id)
 
 
