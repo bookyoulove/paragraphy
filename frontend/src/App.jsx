@@ -9,7 +9,6 @@ import Workbench from './components/Workbench';
 import HistoryView from './components/HistoryView';
 import TutorChatModal from './components/TutorChatModal';
 import { api } from './api/client';
-import { mockApi } from './mocks/api';
 
 export default function App() {
   const [entered, setEntered] = useState(false);
@@ -131,7 +130,7 @@ export default function App() {
         </div>
       </div>
       {user && view === 'work' && session?.results.length > 0 && (
-        <TutorChatModal session={session} onChat={mockApi.chat} />
+        <TutorChatModal session={session} onChat={api.chat} onLoadHistory={api.getChat} />
       )}
       {!user && (
         <LoginModal

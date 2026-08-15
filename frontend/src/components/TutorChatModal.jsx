@@ -5,11 +5,12 @@ const waitingMessage = {
   text: '채점이 완료되면 결과를 바탕으로 더 구체적인 도움을 드릴 수 있어요.',
 };
 
-export default function TutorChatModal({ session, onChat }) {
+export default function TutorChatModal({ session, onChat, onLoadHistory }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([waitingMessage]);
   const [question, setQuestion] = useState('');
   const [waiting, setWaiting] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const result = session?.results.at(-1);
 
   useEffect(() => {
@@ -20,15 +21,51 @@ export default function TutorChatModal({ session, onChat }) {
     ]);
   }, [session?.id, result?.attempt]);
 
+  useEffect(() => {
+    if (!isOpen || !result?.id) return;
+
+    let cancelled = false;
+    setLoadingHistory(true);
+    onLoadHistory(result.id)
+      .then((history) => {
+        if (!cancelled && history.length) setMessages(history);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMessages([
+            {
+              role: 'assistant',
+              text: '이전 대화를 불러오지 못했습니다. 새 질문은 계속 보낼 수 있어요.',
+            },
+          ]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingHistory(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, onLoadHistory, result?.id]);
+
   const send = async () => {
     const text = question.trim();
     if (!text || !result) return;
     setQuestion('');
     setMessages((old) => [...old, { role: 'user', text }]);
     setWaiting(true);
-    const reply = await onChat(text, result);
-    setMessages((old) => [...old, { role: 'assistant', text: reply }]);
-    setWaiting(false);
+    try {
+      const reply = await onChat(result.id, text);
+      setMessages((old) => [...old, { role: 'assistant', text: reply }]);
+    } catch (error) {
+      setMessages((old) => [
+        ...old,
+        { role: 'assistant', text: error.message || 'Tutor 답변을 가져오지 못했습니다.' },
+      ]);
+    } finally {
+      setWaiting(false);
+    }
   };
 
   return (
@@ -65,10 +102,11 @@ export default function TutorChatModal({ session, onChat }) {
               </button>
             </header>
             <div className="chat-messages">
+              {loadingHistory && <div className="chat-loading">이전 대화를 불러오는 중...</div>}
               {messages.map((message, index) => (
                 <div
                   className={`chat-box ${message.role === 'assistant' ? 'chat-assistant' : 'chat-user'}`}
-                  key={`${message.role}-${index}`}
+                  key={message.id ?? `${message.role}-${index}`}
                 >
                   <div className={`chat-badge ${message.role === 'assistant' ? 'assistant' : ''}`}>
                     {message.role === 'assistant' ? 'AI' : '나'}
