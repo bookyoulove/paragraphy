@@ -82,8 +82,11 @@ async function request(path, options = {}) {
   const headers = new Headers(options.headers);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-  if (!response.ok)
-    throw new Error((await response.text()) || `API 요청 실패 (${response.status})`);
+  if (!response.ok) {
+    const error = new Error((await response.text()) || `API 요청 실패 (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return response.status === 204 ? null : response.json();
 }
 
@@ -157,5 +160,27 @@ export const api = {
   },
   async getSession(sessionId) {
     return toSession(await request(`/sessions/${sessionId}`));
+  },
+  async getChat(resultId) {
+    try {
+      const messages = await request(`/results/${resultId}/chat`);
+      return messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        text: message.content,
+      }));
+    } catch (error) {
+      if (error.status === 404) return [];
+      throw error;
+    }
+  },
+  async chat(resultId, content) {
+    const response = await request(`/results/${resultId}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (response.error) throw new Error(response.error);
+    return response.reply;
   },
 };
