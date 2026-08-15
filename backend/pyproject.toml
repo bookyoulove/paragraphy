@@ -28,8 +28,8 @@ build-backend = "uv_build"
 ignore = ["UP037", "UP045"]
 
 [tool.uv.sources]
-shared = { path = "../shared", editable = true }
-agent = { path = "../agent", editable = true }
+shared = { workspace = true }
+agent = { workspace = true } 
 
 [tool.pyrefly]
 project-includes = ["../shared/**/*.py"]
