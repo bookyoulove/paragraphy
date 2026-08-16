@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./agent:/app/agent
+      - ./shared:/app/shared
+      - ./db:/app/db
+    env_file:
+      - path: ./backend/.env
+        required: false
+      - path: ./agent/.env
+        required: false
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=sqlite:////app/db/database.db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - path: ./frontend/.env
+        required: false
+    depends_on:
+      - backend
