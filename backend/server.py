@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.misc.db_loader import load_problem
 from backend.orm.session import create_db_and_table, get_session
-from backend.routers import auth, problems, results, sessions
+from backend.routers import auth, problems, results, sessions, webhook_listner
 
 dotenv.load_dotenv()
 
@@ -41,6 +41,7 @@ app.include_router(auth.router)
 app.include_router(problems.router)
 app.include_router(sessions.router)
 app.include_router(results.router)
+app.include_router(webhook_listner.router)
 
 
 if __name__ == "__main__":
