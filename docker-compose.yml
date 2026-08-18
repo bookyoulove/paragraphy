@@ -11,6 +11,7 @@ services:
       - ./agent:/app/agent
       - ./shared:/app/shared
       - ./db:/app/db
+      - ./essay_problems:/app/essay_problems
     env_file:
       - path: ./backend/.env
         required: false
@@ -19,6 +20,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=sqlite:////app/db/database.db
+      - PROBLEM_PATH=/app/essay_problems
 
   frontend:
     build:
