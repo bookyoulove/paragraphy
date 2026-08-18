@@ -4,7 +4,10 @@ from sqlmodel import select
 
 from backend.orm.crud._base import CRUDBase
 from backend.orm.models import AnalysisSessions
-from backend.schema.analysis_session import AnalysisSessionCreate, AnalysisSessionUpdate
+from backend.schema.analysis_session.input import (
+    AnalysisSessionCreate,
+    AnalysisSessionUpdate,
+)
 
 
 class CRUDAnalysisSession(

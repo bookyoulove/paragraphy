@@ -3,7 +3,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from shared.schema.analysis import AnalysisResult
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
 
 from backend.depends import (
@@ -14,8 +13,14 @@ from backend.depends import (
     UserUUIDDep,
 )
 from backend.orm.models import AnalysisResults
-from backend.schema.chat_message import ChatMessageCreate, ChatMessagePublic
-from backend.schema.chat_session import ChatSessionCreate
+from backend.schema.analysis_result.response import (
+    AnalysisResultPublicWithProblemAnswer,
+)
+from backend.schema.chat_message.input import ChatMessageCreate
+from backend.schema.chat_message.public import ChatMessagePublic
+from backend.schema.chat_session.input import ChatSessionCreate
+from backend.schema.problem.response import ProblemPublicWithRubrics
+from backend.schema.user_answer.public import UserAnswerPublic
 
 router = APIRouter(
     prefix="/results",
@@ -65,7 +70,17 @@ async def chat_with_tutor(
     )
 
     history = chat_session.chat_messages
-    ctx = AnalysisResult.model_validate(result).model_dump_json()
+    problem = result.user_answer.analysis_session.problem
+    user_answer = result.user_answer
+    context = AnalysisResultPublicWithProblemAnswer(
+            grammar_result=result.grammar_result,
+            criteria_scores=result.criteria_scores,
+            overall_comment=result.overall_comment,
+            problem=ProblemPublicWithRubrics.model_validate(problem),
+            user_answer=UserAnswerPublic.model_validate(user_answer),
+        )
+
+    ctx = context.model_dump_json()
     res = await chat_agent.run(TutorChatInput(context_text=ctx, history=history))
 
     chat_message_db.create(

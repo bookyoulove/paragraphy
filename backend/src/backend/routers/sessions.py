@@ -15,18 +15,20 @@ from backend.depends import (
     UserUUIDDep,
 )
 from backend.orm.models import AnalysisSessions
-from backend.schema.analysis_result import (
+from backend.schema.analysis_result.input import (
     AnalysisResultCreate,
-    AnalysisResultPublic,
     AnalysisResultUpdate,
 )
-from backend.schema.analysis_session import (
+from backend.schema.analysis_result.public import AnalysisResultPublic
+from backend.schema.analysis_session.input import (
     AnalysisSessionCreate,
-    AnalysisSessionPublicWithProblem,
-    AnalysisSessionPublicWithProblemAnswer,
     AnalysisSessionRequest,
 )
-from backend.schema.user_answer import (
+from backend.schema.analysis_session.response import (
+    AnalysisSessionPublicWithProblem,
+    AnalysisSessionPublicWithProblemAnswer,
+)
+from backend.schema.user_answer.input import (
     InsertUserAnswerRequest,
     UpdateUserAnswerRequest,
     UserAnswerCreate,

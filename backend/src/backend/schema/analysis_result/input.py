@@ -18,6 +18,3 @@ class AnalysisResultUpdate(BaseModel):
     grammar_result: GrammarResult | None = None
     criteria_scores: list[CriteriaScore] | None = None
     overall_comment: str | None = None
-
-class AnalysisResultPublic(AnalysisResultBase):
-    id: UUID

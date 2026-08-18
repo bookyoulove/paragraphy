@@ -4,14 +4,14 @@ from fastapi import APIRouter, Query
 from shared.schema.rubric import RubricGenerationRequest
 
 from backend.depends import ProblemDBDep, RubricAgentDep, RubricDBDep, UserUUIDDep
-from backend.schema.problem import (
+from backend.schema.problem.input import (
     Criteria,
     CustomProblemCreate,
     ProblemCreate,
-    ProblemPublic,
-    ProblemPublicWithRubrics,
 )
-from backend.schema.rubric import RubricCreate, RubricDraft
+from backend.schema.problem.public import ProblemPublic
+from backend.schema.problem.response import ProblemPublicWithRubrics
+from backend.schema.rubric.input import RubricCreate, RubricDraft
 
 router = APIRouter(
     prefix="/problems",
