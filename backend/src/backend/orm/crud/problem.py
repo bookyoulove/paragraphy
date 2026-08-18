@@ -34,3 +34,19 @@ class CRUDProblem(CRUDBase[Problems, ProblemCreate, ProblemUpdate]):
 
         res = self.session.exec(stmt)
         return list(res.all())
+
+    def get_by_details(
+        self,
+        title: str,
+        university: str | None = None,
+        year: int | None = None,
+        created_by_user: bool | None = None,
+    ) -> Problems | None:
+        stmt = select(self.model).where(self.model.title == title)
+        if university is not None:
+            stmt = stmt.where(self.model.university == university)
+        if year is not None:
+            stmt = stmt.where(self.model.year == year)
+        if created_by_user is not None:
+            stmt = stmt.where(self.model.created_by_user == created_by_user)
+        return self.session.exec(stmt).first()

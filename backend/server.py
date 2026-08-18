@@ -5,13 +5,16 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.orm.session import create_db_and_table
+from backend.misc.db_loader import load_problem
+from backend.orm.session import create_db_and_table, get_session
 from backend.routers import auth, problems, results, sessions
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_table()
+    session = next(get_session())
+    load_problem(session)
     yield
 
 
