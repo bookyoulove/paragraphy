@@ -43,7 +43,7 @@ def _parse_md_file(file_path: Path) -> tuple[dict[str, Any], str] | None:
     university = str(metadata.get("university", "")).strip()
     try:
         year = int(metadata["year"])
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
     if not title or not university:
