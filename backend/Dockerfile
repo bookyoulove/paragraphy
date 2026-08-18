@@ -36,7 +36,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 FROM base AS development
 WORKDIR /app/backend
 EXPOSE 8000
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/backend", "--reload-dir", "/app/agent", "--reload-dir", "/app/shared"]
 
 # 3. Production stage (multi-worker)
 FROM base AS production

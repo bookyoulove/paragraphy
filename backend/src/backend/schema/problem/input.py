@@ -4,8 +4,7 @@ from pydantic import BaseModel, Field
 from shared.schema.problem import ProblemContent
 
 from backend.orm.models import ProblemBase
-
-from .rubric import RubricDraft, RubricPublic
+from backend.schema.rubric.input import RubricDraft
 
 
 class ProblemCreate(ProblemBase):
@@ -26,11 +25,3 @@ class Criteria(BaseModel):
 
 class CustomProblemCreate(ProblemContent):
     rubrics: list[RubricDraft] = Field(min_length=1)
-
-
-class ProblemPublic(ProblemBase):
-    id: UUID
-
-
-class ProblemPublicWithRubrics(ProblemPublic):
-    rubrics: list[RubricPublic]

@@ -11,8 +11,8 @@ from sqlmodel import Session
 from backend.orm.crud import CRUDProblem, CRUDRubric
 from backend.orm.models import Problems
 from backend.orm.session import create_db_and_table, db_engine
-from backend.schema.problem import ProblemCreate, ProblemUpdate
-from backend.schema.rubric import RubricCreate
+from backend.schema.problem.input import ProblemCreate, ProblemUpdate
+from backend.schema.rubric.input import RubricCreate
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +95,11 @@ def _load_rubrics(directory: Path) -> list[dict[str, Any]]:
     return rubrics
 
 
-def load_problem(
-    session: Session | None = None
-) -> list[Problems]:
+def load_problem(session: Session | None = None) -> list[Problems]:
     directory = problem_path
-    
+
     if not directory.exists() or not directory.is_dir():
         raise FileNotFoundError(f"Directory not found: {directory}")
-
 
     # Group files by (directory, university, year, title)
     grouped: dict[tuple[Path, str, int, str], dict[str, Any]] = {}

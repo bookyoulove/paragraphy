@@ -14,7 +14,3 @@ class RubricUpdate(BaseModel):
 
 
 class RubricDraft(RubricBase): ...
-
-
-class RubricPublic(RubricBase):
-    id: UUID

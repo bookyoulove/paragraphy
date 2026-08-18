@@ -4,7 +4,7 @@ from sqlmodel import col, select
 
 from backend.orm.crud._base import CRUDBase
 from backend.orm.models import Problems
-from backend.schema.problem import Criteria, ProblemCreate, ProblemUpdate
+from backend.schema.problem.input import Criteria, ProblemCreate, ProblemUpdate
 
 
 class CRUDProblem(CRUDBase[Problems, ProblemCreate, ProblemUpdate]):
