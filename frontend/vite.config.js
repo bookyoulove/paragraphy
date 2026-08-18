@@ -10,4 +10,5 @@ export default defineConfig({
       usePolling: true,
     },
   },
+  allowedHosts: env.VITE_ALLOWED_HOSTS ? env.VITE_ALLOWED_HOSTS.split(',') : [],
 });
