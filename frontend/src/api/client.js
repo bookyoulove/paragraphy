@@ -13,9 +13,7 @@ function toProblem(problem) {
       exam_type: problem.created_by_user ? '사용자 문제' : '논술 문제',
       year: problem.year?.toString() ?? '',
     },
-    rubric: (problem.rubrics ?? [])
-      .map((item) => [item.criteria, item.description].filter(Boolean).join(': '))
-      .join('\n'),
+    rubric: problem.rubrics ?? [],
     raw: problem,
   };
 }
@@ -65,17 +63,14 @@ function toSession(session) {
   };
 }
 
-function parseRubrics(text) {
-  const rows = text
-    .split('\n')
-    .map((row) => row.trim())
-    .filter(Boolean);
-  return (rows.length ? rows : ['논리적 주장과 근거 제시'])
-    .map((row) => row.replace(/^\d+[.)]\s*/, ''))
-    .map((row) => {
-      const [criteria, ...description] = row.split(':');
-      return { criteria: criteria.trim(), description: description.join(':').trim() || null };
-    });
+function toRubricPayload(rubrics) {
+  const items = (Array.isArray(rubrics) ? rubrics : [])
+    .map((item) => ({
+      criteria: item.criteria?.trim() ?? '',
+      description: item.description?.trim() || null,
+    }))
+    .filter((item) => item.criteria);
+  return items.length ? items : [{ criteria: '논리적 주장과 근거 제시', description: null }];
 }
 
 async function request(path, options = {}) {
@@ -141,16 +136,19 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, model_answer: null }),
     });
-    return rubrics
-      .map((item) => [item.criteria, item.description].filter(Boolean).join(': '))
-      .join('\n');
+    return rubrics;
   },
-  async createProblem({ title, content, rubric }) {
+  async createProblem({ title, content, rubrics }) {
     return toProblem(
       await request('/problems/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content, model_answer: null, rubrics: parseRubrics(rubric) }),
+        body: JSON.stringify({
+          title,
+          content,
+          model_answer: null,
+          rubrics: toRubricPayload(rubrics),
+        }),
       }),
     );
   },

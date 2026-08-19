@@ -148,7 +148,13 @@ export default function App() {
               <CustomProblemForm onGenerate={generateRubric} onCreate={create} />
             )}
             {view === 'work' && (
-              <Workbench problem={problem} session={session} onSave={save} onGrade={grade} />
+              <Workbench
+                problem={problem}
+                session={session}
+                onSave={save}
+                onGrade={grade}
+                readOnly={Boolean(session?.results?.length)}
+              />
             )}
             {view === 'history' && (
               <HistoryView

@@ -9,12 +9,14 @@ const delay = (value, ms = 350) => new Promise((resolve) => setTimeout(() => res
 
 export const mockApi = {
   getProblems: () => delay([...problemStore]),
-  createProblem: ({ title, content, rubric }) => {
+  createProblem: ({ title, content, rubrics }) => {
     const problem = {
       id: nextProblemId++,
       title,
       content,
-      rubric: rubric || '주장, 근거, 논리 전개를 각 5점 만점으로 평가합니다.',
+      rubric: rubrics?.length
+        ? rubrics
+        : [{ criteria: '논리적 주장과 근거 제시', description: null }],
       source: '직접 입력',
       meta: { school: '직접 입력', exam_type: '사용자 문제', year: '2026' },
     };
@@ -22,9 +24,11 @@ export const mockApi = {
     return delay(problem);
   },
   generateRubric: () =>
-    delay(
-      '1. 문제의 핵심 쟁점을 정확히 파악한다.\n2. 주장이 분명하고 근거가 적절하다.\n3. 논리적 구조와 표현이 자연스럽다.',
-    ),
+    delay([
+      { criteria: '핵심 쟁점 파악', description: '문제의 핵심 쟁점을 정확히 파악한다.' },
+      { criteria: '주장과 근거', description: '주장이 분명하고 근거가 적절하다.' },
+      { criteria: '논리적 구조와 표현', description: '논리적 구조와 표현이 자연스럽다.' },
+    ]),
   createSession: (problem) => {
     const session = {
       id: nextSessionId++,

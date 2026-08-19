@@ -1,14 +1,21 @@
 import { useState } from 'react';
+import RubricItems from './RubricItems';
+
+const createInitialForm = () => ({
+  title: '',
+  content: '',
+  rubrics: [{ criteria: '', description: '' }],
+});
 
 export default function CustomProblemForm({ onGenerate, onCreate }) {
-  const [form, setForm] = useState({ title: '', content: '', rubric: '' });
+  const [form, setForm] = useState(createInitialForm);
   const [status, setStatus] = useState('');
   const patch = (key, value) => setForm((old) => ({ ...old, [key]: value }));
   const generate = async () => {
     if (!form.content.trim()) return setStatus('먼저 문제 본문을 입력하세요.');
     setStatus('샘플 AI가 채점 기준을 생성하는 중입니다...');
     try {
-      patch('rubric', await onGenerate(form));
+      patch('rubrics', await onGenerate(form));
       setStatus('생성된 샘플 채점 기준입니다. 수정 후 저장할 수 있습니다.');
     } catch (err) {
       setStatus(err.message || '채점 기준 생성에 실패했습니다.');
@@ -20,7 +27,7 @@ export default function CustomProblemForm({ onGenerate, onCreate }) {
     try {
       const created = await onCreate(form);
       if (created === false) return;
-      setForm({ title: '', content: '', rubric: '' });
+      setForm(createInitialForm());
       setStatus('');
     } catch (err) {
       setStatus(err.message || '문제 저장에 실패했습니다.');
@@ -52,18 +59,15 @@ export default function CustomProblemForm({ onGenerate, onCreate }) {
       />
       <div className="rubric-row">
         <label className="field-label">채점 기준</label>
-        <button className="ghost-btn" onClick={generate}>
+        <button type="button" className="ghost-btn" onClick={generate}>
           AI로 채점기준 생성
         </button>
       </div>
-      <textarea
-        className="custom-textarea"
-        value={form.rubric}
-        onChange={(e) => patch('rubric', e.target.value)}
-        placeholder="채점 기준을 입력하세요."
-      />
+      <div className="rubric-editor">
+        <RubricItems items={form.rubrics} onChange={(rubrics) => patch('rubrics', rubrics)} />
+      </div>
       <div className="session-status">{status}</div>
-      <button className="primary-btn full-width" onClick={create}>
+      <button type="button" className="primary-btn full-width" onClick={create}>
         이 문제로 저장하고 선택
       </button>
     </div>
