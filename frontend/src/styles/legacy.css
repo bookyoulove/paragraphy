@@ -604,10 +604,147 @@ textarea {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 24px;
-  font-size: 13px;
-  line-height: 1.8;
   color: var(--text);
+}
+
+.rubric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rubric-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+}
+
+.rubric-item-readonly {
+  padding: 15px 17px;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.rubric-item-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.rubric-item-number {
+  margin-right: 6px;
+}
+
+.rubric-item-description {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--muted);
   white-space: pre-wrap;
+}
+
+.rubric-editor {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.rubric-item-editable {
+  padding: 12px 14px;
+}
+
+.rubric-item-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rubric-item-index {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rubric-remove-button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.rubric-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.rubric-editor-actions .ghost-btn {
+  width: 100%;
+  min-width: 160px;
+  padding: 9px 18px;
+  background: var(--white);
+  border-color: var(--navy);
+  box-shadow: 0 2px 5px var(--shadow);
+  font-weight: 700;
+}
+
+.rubric-item-edit-header .rubric-remove-button {
+  color: #a85d5d;
+  border-color: #e5caca;
+  background: #fffafa;
+}
+
+.rubric-item-edit-header .rubric-remove-button:hover {
+  color: #984d4d;
+  border-color: #dcb8b8;
+  background: #fff3f3;
+}
+
+.rubric-editor-actions .ghost-btn:hover {
+  background: var(--panel-light);
+}
+
+.rubric-item-field {
+  display: block;
+}
+
+.rubric-item-field + .rubric-item-field {
+  margin-top: 10px;
+}
+
+.rubric-item-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.rubric-item-input,
+.rubric-item-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.rubric-item-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.rubric-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .history-list {

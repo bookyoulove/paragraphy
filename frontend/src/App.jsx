@@ -1,19 +1,19 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useMatch, useNavigate } from 'react-router-dom';
-import LoginModal from './components/LoginModal';
+import { api } from './api/client';
 import Brand from './components/Brand';
+import LoginModal from './components/LoginModal';
 import Sidebar from './components/Sidebar';
 import TutorChatModal from './components/TutorChatModal';
-import LandingPage from './pages/LandingPage';
-import ProblemsPage from './pages/ProblemsPage';
-import NewProblemPage from './pages/NewProblemPage';
-import SessionPage from './pages/SessionPage';
-import HistoryPage from './pages/HistoryPage';
-import ComparePage from './pages/ComparePage';
-import { api } from './api/client';
 import useAppData from './hooks/useAppData';
+import ComparePage from './pages/ComparePage';
+import HistoryPage from './pages/HistoryPage';
+import LandingPage from './pages/LandingPage';
+import NewProblemPage from './pages/NewProblemPage';
+import ProblemsPage from './pages/ProblemsPage';
+import SessionPage from './pages/SessionPage';
 
-function AppLayout({ user, setUser, problems, session, sessions, actions }) {
+function AppLayout({ user, setUser, data, actions, error, clearError }) {
   const navigate = useNavigate();
   const isSessionPage = useMatch('/sessions/:sessionId');
   const logout = () => {
@@ -25,6 +25,7 @@ function AppLayout({ user, setUser, problems, session, sessions, actions }) {
 
   return (
     <>
+      {error && <div className="error-banner" role="alert"><span>{error}</span><button type="button" onClick={clearError} aria-label="오류 메시지 닫기">닫기 ✕</button></div>}
       <div className="page-wrap">
         <header className="topbar">
           <Brand />
@@ -37,40 +38,47 @@ function AppLayout({ user, setUser, problems, session, sessions, actions }) {
           <Sidebar />
           <main className="main-content">
             <div className="content-info-bar">
-              <span className="current-problem-label">{session?.problem ? `${session.problem.title} — ${session.problem.meta.school}` : '선택된 문제가 없습니다.'}</span>
-              <span className="session-status">{session ? `세션 ${session.id} 진행 중` : ''}</span>
+              <span className="current-problem-label">{data.session?.problem ? `${data.session.problem.title} — ${data.session.problem.meta.school}` : '선택된 문제가 없습니다.'}</span>
+              <span className="session-status">{data.session ? `세션 ${data.session.id} 진행 중` : ''}</span>
             </div>
             <Routes>
-              <Route path="/problems" element={<ProblemsPage problems={problems} onRefresh={actions.refresh} onSelect={actions.createSession} />} />
-              <Route path="/problems/new" element={<NewProblemPage onGenerate={api.generateRubric} onCreate={actions.createProblem} />} />
-              <Route path="/sessions/:sessionId" element={<SessionPage user={user} session={session} onLoad={actions.loadSession} onSave={actions.saveAnswer} onGrade={actions.grade} />} />
-              <Route path="/history" element={<HistoryPage sessions={sessions} onLoad={actions.loadSession} />} />
-              <Route path="/compare" element={<ComparePage sessions={sessions} onLoad={actions.loadSession} />} />
+              <Route path="/problems" element={<ProblemsPage problems={data.problems} onRefresh={actions.refreshProblems} onSelect={actions.createSession} />} />
+              <Route path="/problems/new" element={<NewProblemPage onGenerate={actions.generateRubric} onCreate={actions.createProblem} />} />
+              <Route path="/sessions/:sessionId" element={<SessionPage user={user} session={data.session} onLoad={actions.loadSession} onSave={actions.saveAnswer} onGrade={actions.grade} />} />
+              <Route path="/history" element={<HistoryPage sessions={data.sessions} onLoad={actions.loadSession} />} />
+              <Route path="/compare" element={<ComparePage sessions={data.sessions} onLoad={actions.loadSession} />} />
               <Route path="*" element={<Navigate to="/problems" replace />} />
             </Routes>
           </main>
         </div>
       </div>
-      {user && isSessionPage && session?.results.length > 0 && <TutorChatModal session={session} onChat={api.chat} onLoadHistory={api.getChat} />}
-      {!user && <LoginModal onLogin={async ({ username, password }) => setUser(await api.login(username, password))} />}
+      {user && isSessionPage && data.session?.results.length > 0 && <TutorChatModal session={data.session} onChat={api.chat} onLoadHistory={api.getChat} />}
+      {!user && <LoginModal onLogin={actions.login} />}
     </>
   );
 }
 
 function ParagraphyApp() {
   const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
   const data = useAppData(user);
+  const reportError = useCallback((err) => setError(err?.message || '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'), []);
+  const protect = useCallback((callback) => async (...args) => {
+    try { return await callback(...args); } catch (err) { reportError(err); throw err; }
+  }, [reportError]);
   const actions = {
-    refresh: data.refreshProblems,
-    createSession: data.createSession,
-    loadSession: data.loadSession,
-    saveAnswer: data.saveAnswer,
-    grade: data.grade,
-    createProblem: data.createProblem,
+    refreshProblems: protect(data.refreshProblems),
+    createSession: protect(data.createSession),
+    loadSession: protect(data.loadSession),
+    saveAnswer: protect(data.saveAnswer),
+    grade: protect(data.grade),
+    createProblem: protect(data.createProblem),
+    generateRubric: protect(api.generateRubric),
     clear: data.clear,
+    login: protect(async ({ username, password }) => setUser(await api.login(username, password))),
   };
 
-  return <Routes><Route path="/" element={<LandingPage />} /><Route path="/*" element={<AppLayout user={user} setUser={setUser} problems={data.problems} session={data.session} sessions={data.sessions} actions={actions} />} /></Routes>;
+  return <Routes><Route path="/" element={<LandingPage />} /><Route path="/*" element={<AppLayout user={user} setUser={setUser} data={data} actions={actions} error={error} clearError={() => setError('')} />} /></Routes>;
 }
 
 export default function App() {

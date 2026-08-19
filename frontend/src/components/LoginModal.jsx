@@ -10,7 +10,7 @@ export default function LoginModal({ onLogin }) {
     try {
       await onLogin({ username: username.trim(), password });
     } catch (err) {
-      setError('로그인에 실패했습니다. 백엔드 연결을 확인하세요.');
+      setError(err.message || '로그인에 실패했습니다. 백엔드 연결을 확인하세요.');
     }
   };
   return (

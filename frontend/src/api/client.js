@@ -13,9 +13,7 @@ function toProblem(problem) {
       exam_type: problem.created_by_user ? '사용자 문제' : '논술 문제',
       year: problem.year?.toString() ?? '',
     },
-    rubric: (problem.rubrics ?? [])
-      .map((item) => [item.criteria, item.description].filter(Boolean).join(': '))
-      .join('\n'),
+    rubric: problem.rubrics ?? [],
     raw: problem,
   };
 }
@@ -65,29 +63,54 @@ function toSession(session) {
   };
 }
 
-function parseRubrics(text) {
-  const rows = text
-    .split('\n')
-    .map((row) => row.trim())
-    .filter(Boolean);
-  return (rows.length ? rows : ['논리적 주장과 근거 제시'])
-    .map((row) => row.replace(/^\d+[.)]\s*/, ''))
-    .map((row) => {
-      const [criteria, ...description] = row.split(':');
-      return { criteria: criteria.trim(), description: description.join(':').trim() || null };
-    });
+function toRubricPayload(rubrics) {
+  const items = (Array.isArray(rubrics) ? rubrics : [])
+    .map((item) => ({
+      criteria: item.criteria?.trim() ?? '',
+      description: item.description?.trim() || null,
+    }))
+    .filter((item) => item.criteria);
+  return items.length ? items : [{ criteria: '논리적 주장과 근거 제시', description: null }];
 }
 
 async function request(path, options = {}) {
   const headers = new Headers(options.headers);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch {
+    const error = new Error('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    error.code = 'NETWORK_ERROR';
+    throw error;
+  }
+
   if (!response.ok) {
-    const error = new Error((await response.text()) || `API 요청 실패 (${response.status})`);
+    const message =
+      response.status === 401
+        ? '로그인이 만료되었거나 인증이 필요합니다.'
+        : response.status === 403
+          ? '이 요청을 수행할 권한이 없습니다.'
+          : response.status === 404
+            ? '요청한 데이터를 찾을 수 없습니다.'
+            : response.status >= 500
+              ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+              : '요청을 처리하지 못했습니다. 입력 내용을 확인해주세요.';
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }
-  return response.status === 204 ? null : response.json();
+
+  if (response.status === 204) return null;
+
+  try {
+    return await response.json();
+  } catch {
+    const error = new Error('서버에서 올바르지 않은 응답을 받았습니다.');
+    error.status = response.status;
+    throw error;
+  }
 }
 
 export const api = {
@@ -113,16 +136,19 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, model_answer: null }),
     });
-    return rubrics
-      .map((item) => [item.criteria, item.description].filter(Boolean).join(': '))
-      .join('\n');
+    return rubrics;
   },
-  async createProblem({ title, content, rubric }) {
+  async createProblem({ title, content, rubrics }) {
     return toProblem(
       await request('/problems/custom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content, model_answer: null, rubrics: parseRubrics(rubric) }),
+        body: JSON.stringify({
+          title,
+          content,
+          model_answer: null,
+          rubrics: toRubricPayload(rubrics),
+        }),
       }),
     );
   },
