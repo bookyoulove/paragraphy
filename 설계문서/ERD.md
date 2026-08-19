@@ -3,9 +3,11 @@ erDiagram
     USERS ||--o{ ANALYSIS_SESSIONS : has
     USERS |o..o{ PROBLEMS : made
     USERS ||--o{ USER_SKILL_REPORTS : has
+    USERS ||--o{ COACH_MESSAGES : receives
     PROBLEMS ||--|{ RUBRICS : has
     ANALYSIS_SESSIONS ||--o{ USER_ANSWERS : has
     USER_ANSWERS ||--o| ANALYSIS_RESULTS : graded
+    USER_SKILL_REPORTS ||--o{ COACH_MESSAGES : delivers
     PROBLEMS ||..o{ ANALYSIS_SESSIONS : referenced
     ANALYSIS_RESULTS ||--o| CHAT_SESSIONS : has
     CHAT_SESSIONS ||--o{ CHAT_MESSAGES : has
@@ -68,6 +70,20 @@ erDiagram
         text overall_skill_comment
         text next_learning_goal
         json recommended_actions
+        datetime created_at
+    }
+
+    COACH_MESSAGES {
+        uuid id PK
+        uuid user_id FK
+        uuid skill_report_id FK
+        string recipient_email
+        string message_type
+        string title
+        text content
+        string status
+        datetime scheduled_at
+        datetime sent_at
         datetime created_at
     }
 

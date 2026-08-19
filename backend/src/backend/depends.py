@@ -17,6 +17,7 @@ from backend.orm.crud import (
     CRUDAnalysisSession,
     CRUDChatMessage,
     CRUDChatSession,
+    CRUDCoachMessage,
     CRUDProblem,
     CRUDRubric,
     CRUDUser,
@@ -36,6 +37,7 @@ UserSkillReportDBDep = Annotated[CRUDUserSkillReport, Depends()]
 AnalysisResultDBDep = Annotated[CRUDAnalysisResult, Depends()]
 ChatSessionDBDep = Annotated[CRUDChatSession, Depends()]
 ChatMessageDBDep = Annotated[CRUDChatMessage, Depends()]
+CoachMessageDBDep = Annotated[CRUDCoachMessage, Depends()]
 
 
 def get_current_user_id(user_db: UserDBDep, token: AuthDep):

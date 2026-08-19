@@ -68,6 +68,7 @@ class Users(UserBase, TimeStampMixin, table=True):
     analysis_sessions: list["AnalysisSessions"] = Relationship(back_populates="user")
     problems: list["Problems"] = Relationship(back_populates="user")
     skill_reports: list["UserSkillReports"] = Relationship(back_populates="user")
+    coach_messages: list["CoachMessages"] = Relationship(back_populates="user")
 
 
 """
@@ -106,6 +107,50 @@ class UserSkillReports(UserSkillReportBase, TimeStampMixin, table=True):
     )
 
     user: Users = Relationship(back_populates="skill_reports")
+    coach_messages: list["CoachMessages"] = Relationship(back_populates="skill_report")
+
+
+"""
+COACH_MESSAGES {
+    uuid id PK
+    uuid user_id FK
+    uuid skill_report_id FK
+    string recipient_email
+    string message_type
+    string title
+    text content
+    string status
+    datetime scheduled_at
+    datetime sent_at
+    datetime created_at
+}
+"""
+
+
+class CoachMessageStatus(StrEnum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
+class CoachMessageBase(SQLModel):
+    recipient_email: str = Field(max_length=320)
+    message_type: str = Field(default="weekly_report", max_length=32)
+    title: str = Field(max_length=200)
+    content: str
+    status: CoachMessageStatus = Field(default=CoachMessageStatus.PENDING)
+    scheduled_at: datetime | None = None
+    sent_at: datetime | None = None
+
+
+class CoachMessages(CoachMessageBase, TimeStampMixin, table=True):
+    __tablename__ = "coach_messages"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    skill_report_id: UUID = Field(foreign_key="user_skill_reports.id")
+
+    user: Users = Relationship(back_populates="coach_messages")
+    skill_report: UserSkillReports = Relationship(back_populates="coach_messages")
 
 
 """
