@@ -6,6 +6,7 @@ from .problem import CRUDProblem
 from .rubric import CRUDRubric
 from .user import CRUDUser
 from .user_answer import CRUDUserAnswer
+from .skill_report import CRUDUserSkillReport
 
 __all__ = [
     "CRUDAnalysisResult",
@@ -16,4 +17,5 @@ __all__ = [
     "CRUDRubric",
     "CRUDUser",
     "CRUDUserAnswer",
+    "CRUDUserSkillReport",
 ]

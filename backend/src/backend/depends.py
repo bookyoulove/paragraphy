@@ -2,12 +2,13 @@ import base64
 from typing import Annotated
 from uuid import UUID
 
-from agent import AnalysisAgent, RubricAgent, TutorChatAgent
+from agent import AnalysisAgent, RubricAgent, SkillReportAgent, TutorChatAgent
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from shared.protocol import (
     AnalysisAgentProtocol,
     RubricAgentProtocol,
+    SkillReportAgentProtocol,
     TutorChatAgentProtocol,
 )
 
@@ -20,6 +21,7 @@ from backend.orm.crud import (
     CRUDRubric,
     CRUDUser,
     CRUDUserAnswer,
+    CRUDUserSkillReport,
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -30,6 +32,7 @@ ProblemDBDep = Annotated[CRUDProblem, Depends()]
 AnalysisSessionDBDep = Annotated[CRUDAnalysisSession, Depends()]
 RubricDBDep = Annotated[CRUDRubric, Depends()]
 UserAnswerDBDep = Annotated[CRUDUserAnswer, Depends()]
+UserSkillReportDBDep = Annotated[CRUDUserSkillReport, Depends()]
 AnalysisResultDBDep = Annotated[CRUDAnalysisResult, Depends()]
 ChatSessionDBDep = Annotated[CRUDChatSession, Depends()]
 ChatMessageDBDep = Annotated[CRUDChatMessage, Depends()]
@@ -60,8 +63,16 @@ def get_tutor_chat_agent() -> TutorChatAgentProtocol:
     return TutorChatAgent()
 
 
+def get_skill_report_agent() -> SkillReportAgentProtocol:
+    return SkillReportAgent()
+
+
 RubricAgentDep = Annotated[RubricAgentProtocol, Depends(get_rubric_agent)]
 
 AnalysisAgentDep = Annotated[AnalysisAgentProtocol, Depends(get_analysis_agent)]
 
 TutorChatAgentDep = Annotated[TutorChatAgentProtocol, Depends(get_tutor_chat_agent)]
+
+SkillReportAgentDep = Annotated[
+    SkillReportAgentProtocol, Depends(get_skill_report_agent)
+]

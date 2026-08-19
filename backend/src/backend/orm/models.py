@@ -10,6 +10,7 @@ from shared.schema.analysis import CriteriaScore
 from shared.schema.grammar import GrammarResult
 from shared.schema.problem import ProblemContent
 from shared.schema.rubric import Rubric as RubricBase
+from shared.schema.skill_report import SkillAssessment
 from shared.schema.tutor import ChatMessage as ChatMessageBase
 from sqlmodel import (
     JSON,
@@ -66,6 +67,45 @@ class Users(UserBase, TimeStampMixin, table=True):
 
     analysis_sessions: list["AnalysisSessions"] = Relationship(back_populates="user")
     problems: list["Problems"] = Relationship(back_populates="user")
+    skill_reports: list["UserSkillReports"] = Relationship(back_populates="user")
+
+
+"""
+USER_SKILL_REPORTS {
+    uuid id PK
+    uuid user_id FK
+    string period_type
+    datetime period_start
+    datetime period_end
+    int review_count
+    json skill_scores
+    text overall_skill_comment
+    text next_learning_goal
+    json recommended_actions
+    datetime created_at
+}
+"""
+
+
+class UserSkillReportBase(SQLModel):
+    period_type: str = Field(default="weekly", max_length=16)
+    period_start: datetime
+    period_end: datetime
+    review_count: int = Field(ge=1)
+    overall_skill_comment: str
+    next_learning_goal: str
+    recommended_actions: list[str] = Field(sa_column=Column(PydanticJSON(list[str])))
+
+
+class UserSkillReports(UserSkillReportBase, TimeStampMixin, table=True):
+    __tablename__ = "user_skill_reports"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    skill_scores: list[SkillAssessment] = Field(
+        sa_column=Column(PydanticJSON(list[SkillAssessment]))
+    )
+
+    user: Users = Relationship(back_populates="skill_reports")
 
 
 """
