@@ -1,8 +1,7 @@
 from pydantic import BaseModel, Field
-from sqlmodel import SQLModel
-
 from shared.schema.grammar import GrammarResult
 from shared.schema.problem import ProblemWithRubrics
+from sqlmodel import SQLModel
 
 
 class CriteriaScore(BaseModel):

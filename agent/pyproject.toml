@@ -20,7 +20,7 @@ requires = ["uv_build>=0.12.1,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-shared = { path = "../shared", editable = true }
+shared = { workspace = true }
 
 [tool.ruff.lint]
 ignore = ["BLE001"]

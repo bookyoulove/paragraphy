@@ -38,6 +38,14 @@ class CRUDBase[M: SQLModel, C: SQLModel, U: BaseModel]:
 
         return db_obj
 
+    def create_multi(self, objs_in: list[C]) -> list[M]:
+        db_objs = [self.model.model_validate(obj) for obj in objs_in]
+        self.session.add_all(db_objs)
+        self.session.commit()
+        for db_obj in db_objs:
+            self.session.refresh(db_obj)
+        return db_objs
+
     def update(self, id: UUID, obj_up: U) -> M | None:
         db_obj = self.session.get(self.model, id)
         if db_obj is None:

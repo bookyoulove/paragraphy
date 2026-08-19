@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langchain_core.messages import HumanMessage
@@ -24,6 +25,8 @@ from agent.schemas.feedback import (
 MAX_ATTEMPTS = 3
 RAG_QUERY = "문장과 어휘 표현이 자연스럽고 논증에 효과적인가, 어문 규범과 글쓰기 관습을 지키는가"
 RAG_TOP_K = 3
+
+logger = logging.getLogger(__name__)
 
 
 def guardrail_input_node(state: FeedbackState) -> dict[str, Any]:
@@ -57,7 +60,7 @@ def spelling_agent_node(state: FeedbackState) -> dict[str, Any]:
             "spelling_error": None,
         }
     except SpellingIntegrationError as exc:
-        print(exc)
+        logger.exception("Spelling integration failed")
         return {
             "revised_text": essay_text,
             "spelling_corrections": [],
@@ -91,6 +94,7 @@ def polish_agent_node(state: FeedbackState) -> dict[str, Any]:
     try:
         rag_results = retrieval.query(RAG_QUERY, n_results=RAG_TOP_K)
     except Exception:
+        logger.exception("Feedback RAG retrieval failed")
         rag_results: list[retrieval.RetrievedChunk] = []
     rag_context = "\n\n---\n\n".join(
         f"[{item['metadata'].get('source', '')}/{item['metadata'].get('doc_type', '')}] {item['text']}"
@@ -115,6 +119,7 @@ def polish_agent_node(state: FeedbackState) -> dict[str, Any]:
                 "error": None,
             }
         except Exception as exc:
+            logger.exception("Polish model attempt %d failed", attempt)
             last_error = str(exc)
 
     return {

@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from backend.depends import AuthDep, UserDBDep
-from backend.schema.user import UserCreate
+from backend.schema.user.input import UserCreate
 
 router = APIRouter(
     prefix="/auth",
