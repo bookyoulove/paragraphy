@@ -21,9 +21,13 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
       </div>
     );
   const save = async () => {
-    await onSave(answer);
-    setSaved('답안이 저장되었습니다.');
-    setTimeout(() => setSaved(''), 2200);
+    try {
+      await onSave(answer);
+      setSaved('답안이 저장되었습니다.');
+      setTimeout(() => setSaved(''), 2200);
+    } catch (err) {
+      setSaved(err.message || '답안 저장에 실패했습니다.');
+    }
   };
   const grade = async () => {
     setGrading(true);

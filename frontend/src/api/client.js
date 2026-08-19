@@ -81,13 +81,41 @@ function parseRubrics(text) {
 async function request(path, options = {}) {
   const headers = new Headers(options.headers);
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch {
+    const error = new Error('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.');
+    error.code = 'NETWORK_ERROR';
+    throw error;
+  }
+
   if (!response.ok) {
-    const error = new Error((await response.text()) || `API 요청 실패 (${response.status})`);
+    const message =
+      response.status === 401
+        ? '로그인이 만료되었거나 인증이 필요합니다.'
+        : response.status === 403
+          ? '이 요청을 수행할 권한이 없습니다.'
+          : response.status === 404
+            ? '요청한 데이터를 찾을 수 없습니다.'
+            : response.status >= 500
+              ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+              : '요청을 처리하지 못했습니다. 입력 내용을 확인해주세요.';
+    const error = new Error(message);
     error.status = response.status;
     throw error;
   }
-  return response.status === 204 ? null : response.json();
+
+  if (response.status === 204) return null;
+
+  try {
+    return await response.json();
+  } catch {
+    const error = new Error('서버에서 올바르지 않은 응답을 받았습니다.');
+    error.status = response.status;
+    throw error;
+  }
 }
 
 export const api = {

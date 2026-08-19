@@ -18,20 +18,45 @@ export default function App() {
   const [problem, setProblem] = useState(null);
   const [session, setSession] = useState(null);
   const [sessions, setSessions] = useState([]);
-  const refresh = async () => setProblems(await api.getProblems());
+  const [error, setError] = useState('');
+
+  const reportError = (err) => {
+    setError(err?.message || '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+  };
+
+  const refresh = async () => {
+    try {
+      setProblems(await api.getProblems());
+      return true;
+    } catch (err) {
+      reportError(err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-    Promise.all([api.getProblems(), api.getSessions()]).then(([loadedProblems, loadedSessions]) => {
-      setProblems(loadedProblems);
-      setSessions(loadedSessions);
-    });
+    Promise.all([api.getProblems(), api.getSessions()])
+      .then(([loadedProblems, loadedSessions]) => {
+        setProblems(loadedProblems);
+        setSessions(loadedSessions);
+      })
+      .catch(reportError);
   }, [user]);
+
   const select = async (next) => {
-    const createdSession = await api.createSession(next);
-    setProblem(createdSession.problem);
-    setSession(createdSession);
-    setView('work');
+    try {
+      const createdSession = await api.createSession(next);
+      setProblem(createdSession.problem);
+      setSession(createdSession);
+      setView('work');
+      return true;
+    } catch (err) {
+      reportError(err);
+      return false;
+    }
   };
+
   const save = async (answer) => {
     if (!session) return;
     const updated = await api.saveAnswer(session, answer);
@@ -39,20 +64,44 @@ export default function App() {
     setSessions(await api.getSessions());
     return updated;
   };
+
   const grade = async (sessionToGrade) => {
     if (!sessionToGrade) return;
     const updated = await api.grade(sessionToGrade);
     setSession({ ...sessionToGrade, results: [...sessionToGrade.results, updated] });
     setSessions(await api.getSessions());
   };
+
+  const generateRubric = async (form) => {
+    try {
+      return await api.generateRubric(form);
+    } catch (err) {
+      reportError(err);
+      throw err;
+    }
+  };
+
   const create = async (form) => {
-    const created = await api.createProblem(form);
-    await refresh();
-    await select(created);
+    try {
+      const created = await api.createProblem(form);
+      if (!(await refresh())) return false;
+      return select(created);
+    } catch (err) {
+      reportError(err);
+      return false;
+    }
   };
   if (!entered) return <Landing onStart={() => setEntered(true)} />;
   return (
     <>
+      {error && (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError('')} aria-label="오류 메시지 닫기">
+            닫기 ✕
+          </button>
+        </div>
+      )}
       <div className="page-wrap">
         <header className="topbar">
           <Brand />
@@ -96,7 +145,7 @@ export default function App() {
               />
             )}
             {view === 'pick-custom' && (
-              <CustomProblemForm onGenerate={api.generateRubric} onCreate={create} />
+              <CustomProblemForm onGenerate={generateRubric} onCreate={create} />
             )}
             {view === 'work' && (
               <Workbench problem={problem} session={session} onSave={save} onGrade={grade} />
@@ -105,10 +154,13 @@ export default function App() {
               <HistoryView
                 sessions={sessions}
                 onResume={(item) => {
-                  api.getSession(item.id).then((loaded) => {
-                    setProblem(loaded.problem);
-                    setSession(loaded);
-                  });
+                  api
+                    .getSession(item.id)
+                    .then((loaded) => {
+                      setProblem(loaded.problem);
+                      setSession(loaded);
+                    })
+                    .catch(reportError);
                   setView('work');
                 }}
               />
@@ -118,10 +170,13 @@ export default function App() {
                 sessions={sessions}
                 compareOnly
                 onResume={(item) => {
-                  api.getSession(item.id).then((loaded) => {
-                    setProblem(loaded.problem);
-                    setSession(loaded);
-                  });
+                  api
+                    .getSession(item.id)
+                    .then((loaded) => {
+                      setProblem(loaded.problem);
+                      setSession(loaded);
+                    })
+                    .catch(reportError);
                   setView('work');
                 }}
               />

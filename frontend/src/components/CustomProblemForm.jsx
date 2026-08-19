@@ -7,15 +7,24 @@ export default function CustomProblemForm({ onGenerate, onCreate }) {
   const generate = async () => {
     if (!form.content.trim()) return setStatus('먼저 문제 본문을 입력하세요.');
     setStatus('샘플 AI가 채점 기준을 생성하는 중입니다...');
-    patch('rubric', await onGenerate(form));
-    setStatus('생성된 샘플 채점 기준입니다. 수정 후 저장할 수 있습니다.');
+    try {
+      patch('rubric', await onGenerate(form));
+      setStatus('생성된 샘플 채점 기준입니다. 수정 후 저장할 수 있습니다.');
+    } catch (err) {
+      setStatus(err.message || '채점 기준 생성에 실패했습니다.');
+    }
   };
   const create = async () => {
     if (!form.title.trim() || !form.content.trim())
       return setStatus('문제 제목과 본문을 입력하세요.');
-    await onCreate(form);
-    setForm({ title: '', content: '', rubric: '' });
-    setStatus('');
+    try {
+      const created = await onCreate(form);
+      if (created === false) return;
+      setForm({ title: '', content: '', rubric: '' });
+      setStatus('');
+    } catch (err) {
+      setStatus(err.message || '문제 저장에 실패했습니다.');
+    }
   };
   return (
     <div className="picker-view">
