@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from langchain_core.messages import HumanMessage
 
 from agent.model import get_structured_model
+from agent.retry import call_with_retry
 from agent.schemas.grading import CriterionScore
 from agent.schemas.guardrail import DirectWritingResult, InputSafetyResult
 
@@ -41,15 +42,21 @@ def check_input_safety(text: str) -> GuardrailResult:
 {text[:4000]}"""
 
     try:
-        result = get_structured_model(InputSafetyResult).invoke(
-            [HumanMessage(content=prompt)]
+        model = get_structured_model(InputSafetyResult)
+        result = call_with_retry(
+            lambda: model.invoke([HumanMessage(content=prompt)]),
+            operation_name="Input safety guardrail",
+            max_attempts=2,
+            max_wait=5,
         )
         return GuardrailResult(result.flagged, result.category, result.reason)
     except Exception as exc:
         return _safe_default(f"입력 가드레일 호출 실패, 통과 처리: {exc}")
 
 
-def check_direct_writing(criteria_scores: list[Any]) -> GuardrailResult:
+def check_direct_writing(
+    criteria_scores: Sequence[CriterionScore | Mapping[str, object]],
+) -> GuardrailResult:
     if not criteria_scores:
         return GuardrailResult(False, "safe", "")
 
@@ -70,8 +77,12 @@ def check_direct_writing(criteria_scores: list[Any]) -> GuardrailResult:
 {chr(10).join(improvements)[:4000]}"""
 
     try:
-        result = get_structured_model(DirectWritingResult).invoke(
-            [HumanMessage(content=prompt)]
+        model = get_structured_model(DirectWritingResult)
+        result = call_with_retry(
+            lambda: model.invoke([HumanMessage(content=prompt)]),
+            operation_name="Direct writing guardrail",
+            max_attempts=2,
+            max_wait=5,
         )
         return GuardrailResult(
             result.flagged,

@@ -9,5 +9,11 @@ export default function SessionPage({ user, session, onLoad, onSave, onGrade }) 
     if (user && !isCurrentSession) onLoad(sessionId);
   }, [user, sessionId, isCurrentSession, onLoad]);
   if (!isCurrentSession) return <div className="panel-empty">세션을 불러오는 중입니다.</div>;
-  return <Workbench problem={session.problem} session={session} onSave={onSave} onGrade={onGrade} />;
+  return <Workbench
+    problem={session.problem}
+    session={session}
+    onSave={onSave}
+    onGrade={onGrade}
+    readOnly={Boolean(session.results.length)}
+  />;
 }

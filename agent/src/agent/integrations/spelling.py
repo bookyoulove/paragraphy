@@ -25,6 +25,8 @@ from shared.schema.grammar import (
     RevisionCategory,
 )
 
+from agent.retry import call_with_retry
+
 
 @dataclass(frozen=True, slots=True)
 class Correction:
@@ -138,7 +140,12 @@ def check_spelling(text: str) -> GrammarResult:
         return _empty_result(text)
 
     try:
-        response = _get_corrector().correct_error(content=text)
+        corrector = _get_corrector()
+        response = call_with_retry(
+            lambda: corrector.correct_error(content=text),
+            operation_name="Bareun spelling API",
+            max_wait=8,
+        )
         return _convert_response(response)
     except SpellingIntegrationError:
         raise
