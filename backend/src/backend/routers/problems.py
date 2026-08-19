@@ -4,14 +4,14 @@ from fastapi import APIRouter, Query
 from shared.schema.rubric import RubricGenerationRequest
 
 from backend.depends import ProblemDBDep, RubricAgentDep, RubricDBDep, UserUUIDDep
-from backend.schema.problem import (
+from backend.schema.problem.input import (
     Criteria,
     CustomProblemCreate,
     ProblemCreate,
-    ProblemPublic,
-    ProblemPublicWithRubrics,
 )
-from backend.schema.rubric import RubricCreate, RubricDraft
+from backend.schema.problem.public import ProblemPublic
+from backend.schema.problem.response import ProblemPublicWithRubrics
+from backend.schema.rubric.input import RubricCreate, RubricDraft
 
 router = APIRouter(
     prefix="/problems",
@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[ProblemPublic])
-def problem_list(
+def get_problem_list(
     criteria: Annotated[Criteria, Query()],
     user_id: UserUUIDDep,
     problem_db: ProblemDBDep,
@@ -29,7 +29,7 @@ def problem_list(
 
 
 @router.post("/rubric-gen", response_model=list[RubricDraft])
-async def rubric_gen(
+async def generate_rubric(
     request: RubricGenerationRequest,
     user_id: UserUUIDDep,
     agent: RubricAgentDep,

@@ -1,6 +1,9 @@
 from backend.orm.crud._base import CRUDBase
 from backend.orm.models import AnalysisResults
-from backend.schema.analysis_result import AnalysisResultCreate, AnalysisResultUpdate
+from backend.schema.analysis_result.input import (
+    AnalysisResultCreate,
+    AnalysisResultUpdate,
+)
 
 
 class CRUDAnalysisResult(

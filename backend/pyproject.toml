@@ -12,6 +12,7 @@ dependencies = [
     "fastapi[standard]>=0.141.1",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
+    "python-frontmatter>=1.3.0",
     "shared",
     "sqlmodel>=0.0.39",
     "tzdata>=2026.3",
@@ -28,8 +29,8 @@ build-backend = "uv_build"
 ignore = ["UP037", "UP045"]
 
 [tool.uv.sources]
-shared = { path = "../shared", editable = true }
-agent = { path = "../agent", editable = true }
+shared = { workspace = true }
+agent = { workspace = true } 
 
 [tool.pyrefly]
 project-includes = ["../shared/**/*.py"]

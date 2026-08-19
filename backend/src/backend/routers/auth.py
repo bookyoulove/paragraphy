@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
 from backend.depends import AuthDep, UserDBDep
-from backend.schema.user import UserCreate
+from backend.schema.user.input import UserCreate
 
 router = APIRouter(
     prefix="/auth",
@@ -19,7 +19,7 @@ class Token(BaseModel):
 
 
 @router.post("/login")
-async def token(
+async def get_login_token(
     payload: Annotated[OAuth2PasswordRequestForm, Depends()],
     user_db: UserDBDep,
 ) -> Token:

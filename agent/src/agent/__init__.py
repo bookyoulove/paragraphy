@@ -1,4 +1,5 @@
-from .grading import AnalysisAgent
-from .rubric import RubricAgent
+"""Paragraphy 에이전트 패키지의 공개 API."""
 
-__all__ = ["AnalysisAgent", "RubricAgent"]
+from agent.facade import AnalysisAgent, RubricAgent, TutorChatAgent
+
+__all__ = ["AnalysisAgent", "RubricAgent", "TutorChatAgent"]
