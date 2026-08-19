@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import ResultPanel from './ResultPanel';
+import RubricModal from './RubricModal';
 
-export default function Workbench({ problem, session, onSave, onGrade }) {
+export default function Workbench({ problem, session, onSave, onGrade, readOnly = false }) {
   const [answer, setAnswer] = useState(session?.answer || '');
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
@@ -21,9 +22,13 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
       </div>
     );
   const save = async () => {
-    await onSave(answer);
-    setSaved('답안이 저장되었습니다.');
-    setTimeout(() => setSaved(''), 2200);
+    try {
+      await onSave(answer);
+      setSaved('답안이 저장되었습니다.');
+      setTimeout(() => setSaved(''), 2200);
+    } catch (err) {
+      setSaved(err.message || '답안 저장에 실패했습니다.');
+    }
   };
   const grade = async () => {
     setGrading(true);
@@ -39,7 +44,7 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
   const editor = (
     <section className="answer-box">
       <div className="answer-header">
-        <div className="answer-title">답안 작성</div>
+        <div className="answer-title">{readOnly ? '답안 보기' : '답안 작성'}</div>
         <div className="word-counter">{answer.trim().length}자</div>
       </div>
       <div className="highlight-wrap">
@@ -48,18 +53,21 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="여기에 답안을 작성하세요."
+          readOnly={readOnly}
           spellCheck="false"
         />
       </div>
-      <div className="answer-actions">
-        <span className="save-status">{saved}</span>
-        <button className="primary-btn" onClick={save}>
-          답안 저장
-        </button>
-        <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
-          {grading ? '채점 중...' : '채점 요청'}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="answer-actions">
+          <span className="save-status">{saved}</span>
+          <button className="primary-btn" onClick={save}>
+            답안 저장
+          </button>
+          <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
+            {grading ? '채점 중...' : '채점 요청'}
+          </button>
+        </div>
+      )}
     </section>
   );
   const detail = (
@@ -86,18 +94,7 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
         </section>
       </div>
       {showRubric && (
-        <div className="rubric-modal">
-          <div className="rubric-modal-backdrop" onClick={() => setShowRubric(false)} />
-          <div className="rubric-modal-card">
-            <div className="rubric-modal-header">
-              <div className="label-title">채점 기준</div>
-              <button className="ghost-btn" onClick={() => setShowRubric(false)}>
-                닫기 ✕
-              </button>
-            </div>
-            <div className="rubric-modal-body">{problem.rubric}</div>
-          </div>
-        </div>
+        <RubricModal rubric={problem.rubric} onClose={() => setShowRubric(false)} readOnly />
       )}
     </>
   );
