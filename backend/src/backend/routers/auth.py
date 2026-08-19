@@ -1,3 +1,4 @@
+import base64
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
@@ -26,7 +27,8 @@ async def get_login_token(
     found_user = user_db.get_name(payload.username)
     if found_user is None:
         user_db.create(UserCreate(user_name=payload.username))
-    return Token(access_token=payload.username, token_type="bearer")
+    token = base64.b64encode(payload.username.encode("utf-8")).decode("utf-8")
+    return Token(access_token=token, token_type="bearer")
 
 
 @router.get("/my")
