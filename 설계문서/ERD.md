@@ -2,6 +2,7 @@
 erDiagram
     USERS ||--o{ ANALYSIS_SESSIONS : has
     USERS |o..o{ PROBLEMS : made
+    USERS ||--o{ USER_SKILL_REPORTS : has
     PROBLEMS ||--|{ RUBRICS : has
     ANALYSIS_SESSIONS ||--o{ USER_ANSWERS : has
     USER_ANSWERS ||--o| ANALYSIS_RESULTS : graded
@@ -53,6 +54,20 @@ erDiagram
         json grammar_result
         json criteria_scores
         text overall_comment
+        datetime created_at
+    }
+
+    USER_SKILL_REPORTS {
+        uuid id PK
+        uuid user_id FK
+        string period_type
+        datetime period_start
+        datetime period_end
+        int review_count
+        json skill_scores
+        text overall_skill_comment
+        text next_learning_goal
+        json recommended_actions
         datetime created_at
     }
 
