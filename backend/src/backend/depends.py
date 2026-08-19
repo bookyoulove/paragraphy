@@ -1,3 +1,4 @@
+import base64
 from typing import Annotated
 from uuid import UUID
 
@@ -34,8 +35,9 @@ ChatSessionDBDep = Annotated[CRUDChatSession, Depends()]
 ChatMessageDBDep = Annotated[CRUDChatMessage, Depends()]
 
 
-def get_current_user_id(user_db: UserDBDep, username: AuthDep):
-    user_db_obj = user_db.get_name(username)
+def get_current_user_id(user_db: UserDBDep, token: AuthDep):
+    name = base64.b64decode(token).decode("utf-8")
+    user_db_obj = user_db.get_name(name)
     if user_db_obj is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="username not exists in db"
