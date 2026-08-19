@@ -1,22 +1,25 @@
+import { NavLink } from 'react-router-dom';
+
 const items = [
-  ['pick-existing', '문제 선택'],
-  ['pick-custom', '문제 직접 입력'],
-  ['history', '답안 기록'],
-  ['compare', '채점 비교'],
+  ['/problems', '문제 선택'],
+  ['/problems/new', '문제 직접 입력'],
+  ['/history', '답안 기록'],
+  ['/compare', '채점 비교'],
 ];
-export default function Sidebar({ active, onChange }) {
+export default function Sidebar() {
   return (
     <nav className="sidebar">
       <ul className="sidebar-menu">
-        {items.map(([id, label], index) => (
-          <li key={id}>
+        {items.map(([path, label], index) => (
+          <li key={path}>
             {index === 2 && <div className="sidebar-sep" />}
-            <button
-              className={`sidebar-item ${active === id ? 'active' : ''}`}
-              onClick={() => onChange(id)}
+            <NavLink
+              to={path}
+              end={path === '/problems'}
+              className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
             >
               {label}
-            </button>
+            </NavLink>
           </li>
         ))}
       </ul>
