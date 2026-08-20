@@ -187,9 +187,9 @@ export const api = {
       }),
     );
   },
-  async saveAnswer(session, answer) {
+  async saveAnswer(session, answer, { createNew = false } = {}) {
     const payload = { user_answer: answer, status: 'draft' };
-    const response = session.answerId
+    const response = !createNew && session.answerId
       ? await request(`/sessions/${session.id}/answers/${session.answerId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
