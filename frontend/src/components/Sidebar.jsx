@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom';
 
 const items = [
   ['/problems', '문제 선택'],
-  ['/problems/new', '문제 직접 입력'],
   ['/history', '답안 기록'],
   ['/compare', '채점 비교'],
 ];
@@ -12,7 +11,7 @@ export default function Sidebar() {
       <ul className="sidebar-menu">
         {items.map(([path, label], index) => (
           <li key={path}>
-            {index === 2 && <div className="sidebar-sep" />}
+            {index === 1 && <div className="sidebar-sep" />}
             <NavLink
               to={path}
               end={path === '/problems'}

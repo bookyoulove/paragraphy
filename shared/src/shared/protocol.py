@@ -3,6 +3,7 @@ from typing import Protocol
 from pydantic import BaseModel
 
 from shared.schema.analysis import AnalysisRequest, AnalysisResult
+from shared.schema.recommend import RecommendRequest, RecommendResult
 from shared.schema.rubric import RubricGenerationRequest, RubricList
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
 
@@ -22,3 +23,6 @@ class AnalysisAgentProtocol(
 
 
 class TutorChatAgentProtocol(AgentProtocol[TutorChatInput, TutorChatOutput], Protocol): ...
+
+
+class RecommendAgentProtocol(AgentProtocol[RecommendRequest, RecommendResult], Protocol): ...

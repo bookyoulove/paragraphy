@@ -6,16 +6,19 @@ import LoginModal from './components/LoginModal';
 import Sidebar from './components/Sidebar';
 import TutorChatModal from './components/TutorChatModal';
 import useAppData from './hooks/useAppData';
+import AnswerDetailPage from './pages/AnswerDetailPage';
+import AnswerListPage from './pages/AnswerListPage';
 import ComparePage from './pages/ComparePage';
+import ComparisonPage from './pages/ComparisonPage';
 import HistoryPage from './pages/HistoryPage';
 import LandingPage from './pages/LandingPage';
-import NewProblemPage from './pages/NewProblemPage';
 import ProblemsPage from './pages/ProblemsPage';
 import SessionPage from './pages/SessionPage';
 
 function AppLayout({ user, setUser, data, actions, error, clearError }) {
   const navigate = useNavigate();
   const isSessionPage = useMatch('/sessions/:sessionId');
+  const isProblemsPage = useMatch('/problems');
   const logout = () => {
     api.clearToken();
     actions.clear();
@@ -40,13 +43,20 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
             <div className="content-info-bar">
               <span className="current-problem-label">{data.session?.problem ? `${data.session.problem.title} — ${data.session.problem.meta.school}` : '선택된 문제가 없습니다.'}</span>
               <span className="session-status">{data.session ? `세션 ${data.session.id} 진행 중` : ''}</span>
+              {!isProblemsPage && (
+                <button className="ghost-btn content-info-action" onClick={() => navigate('/problems')}>
+                  문제 선택하러 가기
+                </button>
+              )}
             </div>
             <Routes>
-              <Route path="/problems" element={<ProblemsPage problems={data.problems} onRefresh={actions.refreshProblems} onSelect={actions.createSession} />} />
-              <Route path="/problems/new" element={<NewProblemPage onGenerate={actions.generateRubric} onCreate={actions.createProblem} />} />
-              <Route path="/sessions/:sessionId" element={<SessionPage user={user} session={data.session} onLoad={actions.loadSession} onSave={actions.saveAnswer} onGrade={actions.grade} />} />
-              <Route path="/history" element={<HistoryPage sessions={data.sessions} onLoad={actions.loadSession} />} />
-              <Route path="/compare" element={<ComparePage sessions={data.sessions} onLoad={actions.loadSession} />} />
+              <Route path="/problems" element={<ProblemsPage problems={data.problems} onRefresh={actions.refreshProblems} onSelect={actions.createSession} onGenerate={actions.generateRubric} onCreate={actions.createProblem} onDeleteProblem={actions.deleteProblem} onRecommend={actions.recommendProblems} />} />
+              <Route path="/sessions/:sessionId" element={<SessionPage user={user} session={data.session} onLoad={actions.loadSession} onSave={actions.saveAnswer} onGrade={actions.grade} onRename={actions.renameAnswer} />} />
+              <Route path="/history" element={<HistoryPage sessions={data.sessions} onDelete={actions.deleteSession} />} />
+              <Route path="/history/:sessionId" element={<AnswerListPage user={user} session={data.session} onLoad={actions.loadSession} onDelete={actions.deleteAnswer} />} />
+              <Route path="/history/:sessionId/answers/:answerId" element={<AnswerDetailPage user={user} session={data.session} onLoad={actions.loadSession} />} />
+              <Route path="/compare" element={<ComparePage sessions={data.sessions} />} />
+              <Route path="/compare/:sessionId" element={<ComparisonPage user={user} session={data.session} onLoad={actions.loadSession} />} />
               <Route path="*" element={<Navigate to="/problems" replace />} />
             </Routes>
           </main>
@@ -80,8 +90,13 @@ function ParagraphyApp() {
     loadSession: protect(data.loadSession),
     saveAnswer: protect(data.saveAnswer),
     grade: protect(data.grade),
+    renameAnswer: protect(data.renameAnswer),
+    deleteAnswer: protect(data.deleteAnswer),
+    deleteSession: protect(data.deleteSession),
     createProblem: protect(data.createProblem),
+    deleteProblem: protect(data.deleteProblem),
     generateRubric: protect(api.generateRubric),
+    recommendProblems: protect(api.recommendProblems),
     clear: data.clear,
     login: protect(async ({ username, password }) => setUser(await api.login(username, password))),
   };
@@ -90,5 +105,5 @@ function ParagraphyApp() {
 }
 
 export default function App() {
-  return <BrowserRouter><ParagraphyApp /></BrowserRouter>;
+  return <BrowserRouter basename={import.meta.env.BASE_URL}><ParagraphyApp /></BrowserRouter>;
 }

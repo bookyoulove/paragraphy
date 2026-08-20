@@ -135,7 +135,10 @@ class AnalysisSessions(AnalysisSessionBase, TimeStampMixin, table=True):
     problem_id: UUID = Field(foreign_key="problems.id")
 
     user: Users = Relationship(back_populates="analysis_sessions")
-    user_answers: list["UserAnswers"] = Relationship(back_populates="analysis_session")
+    user_answers: list["UserAnswers"] = Relationship(
+        back_populates="analysis_session",
+        sa_relationship_kwargs={"order_by": "UserAnswers.created_at"},
+    )
     problem: Problems = Relationship(back_populates="analysis_sessions")
 
 
@@ -145,6 +148,8 @@ USER_ANSWERS {
     uuid session_id FK
     text user_answer
     string status
+    string name
+    datetime created_at
 }
 """
 
@@ -157,9 +162,10 @@ class Status(StrEnum):
 class UserAnswerBase(SQLModel):
     user_answer: str
     status: Status
+    name: str = Field(max_length=50)
 
 
-class UserAnswers(UserAnswerBase, table=True):
+class UserAnswers(UserAnswerBase, TimeStampMixin, table=True):
     __tablename__ = "user_answers"  # type: ignore
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     session_id: UUID = Field(foreign_key="analysis_sessions.id")

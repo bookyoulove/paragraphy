@@ -16,7 +16,7 @@ export default function LoginModal({ onLogin }) {
   return (
     <div className="login-overlay">
       <div className="login-card">
-        <Brand />
+        <Brand link={false} />
         <div className="login-sub">사용자 이름과 비밀번호를 입력해 로그인하세요.</div>
         <label className="field-label" htmlFor="loginUsername">
           사용자 이름

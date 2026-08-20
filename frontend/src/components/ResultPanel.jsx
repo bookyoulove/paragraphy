@@ -1,18 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import CompareTable from './CompareTable';
+import ProofList from './ProofList';
+import ScoreCard from './ScoreCard';
 
-function formatCreatedAt(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('ko-KR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
-
-export default function ResultPanel({ result, results }) {
+export default function ResultPanel({ sessionId, result, results }) {
   const [tab, setTab] = useState('grade');
-  const pct = result ? Math.round((result.score / result.totalMax) * 100) : 0;
+  const navigate = useNavigate();
   return (
     <aside className="right-panel">
       <div className="tabs">
@@ -36,89 +30,20 @@ export default function ResultPanel({ result, results }) {
               아직 채점 결과가 없습니다. 답안을 저장한 뒤 채점 요청을 눌러주세요.
             </div>
           ) : (
-            <div className="score-card">
-              <div className="score-ring-wrap">
-                <div className="score-ring" style={{ '--score': pct }}>
-                  <div className="score-inner">
-                    <span className="score-number">{result.score}</span>
-                    <span className="score-divider">/ {result.totalMax}</span>
-                  </div>
-                </div>
-                <div className="score-text">
-                  <div className="score-title">항목별 채점 결과</div>
-                  <div className="score-sub">각 평가 항목의 근거와 개선 방향을 확인해 보세요.</div>
-                  {result.createdAt && (
-                    <div className="score-created-at">
-                      채점 요청 시각 · {formatCreatedAt(result.createdAt)}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="criteria-list">
-                {result.scores.map((item) => (
-                  <div className="criteria-item" key={item.label}>
-                    <div className="criteria-row">
-                      <span>{item.label}</span>
-                      <span>
-                        {item.value} / {item.maxScore}
-                      </span>
-                    </div>
-                    <div className="bar">
-                      <span style={{ width: `${(item.value / item.maxScore) * 100}%` }} />
-                    </div>
-                    {(item.rationale || item.improvement) && (
-                      <div className="criteria-feedback">
-                        {item.rationale && (
-                          <p>
-                            <strong>평가</strong>
-                            {item.rationale}
-                          </p>
-                        )}
-                        {item.improvement && (
-                          <p>
-                            <strong>개선 제안</strong>
-                            {item.improvement}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {result.commentary && (
-                <div className="checklist-box">
-                  <div className="checklist-title">종합 코멘트</div>
-                  <p className="overall-comment">{result.commentary}</p>
-                </div>
-              )}
+            <>
+              <ScoreCard result={result} />
               {results.length > 1 && (
                 <div className="compare-section">
                   <div className="compare-title">채점 비교</div>
-                  <div className="compare-table-wrap">
-                    <table className="compare-table">
-                      <thead>
-                        <tr>
-                          <th>회차</th>
-                          {results.map((item) => (
-                            <th key={item.attempt}>{item.attempt}회차</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="compare-total">
-                          <td>총점</td>
-                          {results.map((item) => (
-                            <td key={item.attempt}>
-                              {item.score} / {item.totalMax}
-                            </td>
-                          ))}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <CompareTable
+                    results={results}
+                    onSelectRound={(answerId) =>
+                      navigate(`/history/${sessionId}/answers/${answerId}`)
+                    }
+                  />
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
         <div className={`tab-panel ${tab === 'proof' ? 'active' : ''}`}>
@@ -128,35 +53,7 @@ export default function ResultPanel({ result, results }) {
               <div className="proof-text">채점 후 문법 및 첨삭 항목이 표시됩니다.</div>
             </div>
           ) : (
-            <>
-              <div className="proof-count">감지된 오류 {result.errors.length}건</div>
-              <div className="proof-list">
-                {result.errors.map((item) => (
-                  <div className="proof-box" key={item.before}>
-                    <div className="proof-tag warning">{item.type}</div>
-                    <div className="proof-text">
-                      <del>{item.before}</del> → {item.after}
-                    </div>
-                    {item.note && <div className="proof-meta">{item.note}</div>}
-                    {item.ruleArticle && (
-                      <div className="proof-meta">
-                        <strong>관련 규정</strong> {item.ruleArticle}
-                      </div>
-                    )}
-                    {item.examples?.length > 0 && (
-                      <div className="proof-examples">
-                        <strong>예시</strong>
-                        <ul>
-                          {item.examples.map((example) => (
-                            <li key={example}>{example}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
+            <ProofList errors={result.errors} />
           )}
         </div>
       </div>
