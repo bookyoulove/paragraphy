@@ -10,6 +10,16 @@ export function formatWrittenAt(iso) {
   return `(${y}-${m}-${d}, ${h}:${min} 작성)`;
 }
 
+export function formatCreatedAt(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
 export function selectDisplayedResults(results) {
   if (results.length <= 5) return results;
   return [results[0], ...results.slice(-4)];

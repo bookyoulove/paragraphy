@@ -53,7 +53,7 @@ export default function ResultPanel({ sessionId, result, results }) {
             </div>
           ) : (
             <>
-              <div className="proof-count">감지된 오류 {result.errors.length}건 · 샘플 첨삭</div>
+              <div className="proof-count">감지된 오류 {result.errors.length}건</div>
               <div className="proof-list">
                 {result.errors.map((item) => (
                   <div className="proof-box" key={item.before}>
@@ -61,7 +61,22 @@ export default function ResultPanel({ sessionId, result, results }) {
                     <div className="proof-text">
                       <del>{item.before}</del> → {item.after}
                     </div>
-                    <div className="proof-meta">{item.note}</div>
+                    {item.note && <div className="proof-meta">{item.note}</div>}
+                    {item.ruleArticle && (
+                      <div className="proof-meta">
+                        <strong>관련 규정</strong> {item.ruleArticle}
+                      </div>
+                    )}
+                    {item.examples?.length > 0 && (
+                      <div className="proof-examples">
+                        <strong>예시</strong>
+                        <ul>
+                          {item.examples.map((example) => (
+                            <li key={example}>{example}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

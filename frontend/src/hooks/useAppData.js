@@ -34,9 +34,9 @@ export default function useAppData(user) {
     return loaded;
   }, []);
 
-  const saveAnswer = useCallback(async (answer, pendingName) => {
+  const saveAnswer = useCallback(async (answer, options) => {
     if (!session) return;
-    const updated = await api.saveAnswer(session, answer, pendingName);
+    const updated = await api.saveAnswer(session, answer, options);
     setSession(updated);
     await refreshSessions();
     return updated;

@@ -840,10 +840,22 @@ textarea {
   font-size: 11px;
   color: var(--muted);
 }
+.history-card-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
 .history-card-score {
   font-size: 15px;
   font-weight: 800;
   color: var(--brand);
+  white-space: nowrap;
+}
+.history-card-time {
+  font-size: 11px;
+  color: var(--muted);
   white-space: nowrap;
 }
 .history-card-score.pending {
@@ -1306,6 +1318,11 @@ textarea {
   color: var(--muted);
   line-height: 1.5;
 }
+.score-created-at {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
 
 .criteria-list {
   display: flex;
@@ -1465,6 +1482,17 @@ textarea {
   font-size: 11px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+.proof-examples {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.proof-examples ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
 }
 
 .compare-section {

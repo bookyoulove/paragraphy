@@ -1,3 +1,5 @@
+import { formatCreatedAt } from '../utils/formatters';
+
 export default function ScoreCard({ result }) {
   const pct = Math.round((result.score / result.totalMax) * 100);
   return (
@@ -12,6 +14,9 @@ export default function ScoreCard({ result }) {
         <div className="score-text">
           <div className="score-title">항목별 채점 결과</div>
           <div className="score-sub">각 평가 항목의 근거와 개선 방향을 확인해 보세요.</div>
+          {result.createdAt && (
+            <div className="score-created-at">채점 요청 시각 · {formatCreatedAt(result.createdAt)}</div>
+          )}
         </div>
       </div>
       <div className="criteria-list">

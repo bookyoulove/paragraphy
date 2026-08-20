@@ -235,9 +235,12 @@ async def analysis_answer(
 
 @router.get("/", response_model=list[AnalysisSessionPublicWithProblemAnswer])
 def get_session_list(user_id: UserUUIDDep, session_db: AnalysisSessionDBDep):
-    return session_db.get_by_user(user_id)
+    return [
+        AnalysisSessionPublicWithProblemAnswer.model_validate(session)
+        for session in session_db.get_by_user(user_id)
+    ]
 
 
 @router.get("/{session_id}", response_model=AnalysisSessionPublicWithProblemAnswer)
 def get_session(session_id: UUID, session: ValidSessionDep):
-    return session
+    return AnalysisSessionPublicWithProblemAnswer.model_validate(session)

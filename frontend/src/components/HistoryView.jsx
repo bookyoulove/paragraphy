@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatCreatedAt } from '../utils/formatters';
 
 export default function HistoryView({ sessions, compareOnly, onResume, onDelete }) {
   const [deletingId, setDeletingId] = useState(null);
@@ -34,6 +35,12 @@ export default function HistoryView({ sessions, compareOnly, onResume, onDelete 
         {list.length ? (
           list.map((session) => {
             const result = session.results.at(-1);
+            const resultCount = session.results.length;
+            const status = result
+              ? resultCount > 1
+                ? `${resultCount}회 채점 완료`
+                : '채점 완료'
+              : '미채점';
             return (
               <div className="history-card round-card" key={session.id}>
                 <button className="history-card-main round-card-main" onClick={() => onResume(session)}>
@@ -42,9 +49,12 @@ export default function HistoryView({ sessions, compareOnly, onResume, onDelete 
                     {session.problem.source} · 답안 {session.answers.length}개
                   </div>
                 </button>
-                <span className={`history-card-score ${result ? '' : 'pending'}`}>
-                  {result ? `${result.score} / ${result.totalMax}` : '미채점'}
-                </span>
+                <div className="history-card-result">
+                  <span className={`history-card-score ${result ? '' : 'pending'}`}>{status}</span>
+                  {result?.createdAt && (
+                    <span className="history-card-time">{formatCreatedAt(result.createdAt)}</span>
+                  )}
+                </div>
                 {onDelete && (
                   <button
                     className="ghost-btn round-delete-btn"
