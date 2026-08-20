@@ -121,3 +121,17 @@
     bottom: 18px;
   }
 }
+.new-round-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border: 1px solid #e5c98f;
+  border-radius: 7px;
+  background: var(--warning);
+  color: #765523;
+  font-size: 12px;
+  line-height: 1.5;
+}
