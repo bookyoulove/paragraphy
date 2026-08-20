@@ -1,6 +1,31 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+const AUTH_STORAGE_KEY = 'paragraphy.auth';
 
-let accessToken = null;
+function getAuthStorage() {
+  return typeof window === 'undefined' ? null : window.sessionStorage;
+}
+
+function readStoredAuth() {
+  const storage = getAuthStorage();
+  if (!storage) return null;
+  try {
+    const auth = JSON.parse(storage.getItem(AUTH_STORAGE_KEY) ?? 'null');
+    return auth?.identifier && auth?.token ? auth : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeAuth(auth) {
+  getAuthStorage()?.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+}
+
+function clearStoredAuth() {
+  getAuthStorage()?.removeItem(AUTH_STORAGE_KEY);
+}
+
+const storedAuth = readStoredAuth();
+let accessToken = storedAuth?.token ?? null;
 
 function toProblem(problem) {
   return {
@@ -113,6 +138,11 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      accessToken = null;
+      clearStoredAuth();
+      window.dispatchEvent(new Event('paragraphy:auth-expired'));
+    }
     const message =
       response.status === 401
         ? '로그인이 만료되었거나 인증이 필요합니다.'
@@ -148,10 +178,17 @@ export const api = {
       body,
     });
     accessToken = response.access_token;
-    return { identifier: username, token: response.access_token };
+    const auth = { identifier: username, token: response.access_token };
+    storeAuth(auth);
+    return auth;
+  },
+  getStoredUser() {
+    const auth = readStoredAuth();
+    return auth ? { identifier: auth.identifier, token: auth.token } : null;
   },
   clearToken() {
     accessToken = null;
+    clearStoredAuth();
   },
   async getProblems() {
     return (await request('/problems/')).map(toProblem);
