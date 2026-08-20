@@ -2,7 +2,7 @@ import base64
 from typing import Annotated
 from uuid import UUID
 
-from agent.graphs.tutor import tutor_chat_app
+from agent.facade import stream_tutor_chat
 from agent.schemas.tutor import TutorChatState
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel
@@ -202,27 +202,23 @@ async def chat_with_tutor_ws(
             )
             history.append({"role": "user", "content": user_text})
 
-            graph_input = TutorChatState(
-                request=TutorChatInput(
-                    context_text=context_text,
-                    history=history,
-                    user_identifier=user_identifier,
-                    session_id=session_id,
-                )
+            chat_input = TutorChatInput(
+                context_text=context_text,
+                history=history,
+                user_identifier=user_identifier,
+                session_id=session_id,
             )
             final_state: TutorChatState | None = None
             try:
-                # "custom" 모드 = chat_responder 노드가 writer()로 흘려보내는 텍스트 조각.
-                # "values" 모드 = 각 노드 실행 후의 전체 state 스냅샷 — 마지막 값이 최종 결과.
-                # 노드가 동기 함수라도 astream()은 스레드 실행기로 돌려 이벤트 루프를
-                # 막지 않는다(동기 stream()과의 차이).
-                async for stream_mode, payload in tutor_chat_app.astream(
-                    graph_input, stream_mode=["custom", "values"]
-                ):
-                    if stream_mode == "custom":
+                # facade.stream_tutor_chat()이 그래프 실행을 Langfuse
+                # "tutor-chat-request" span으로 감싸므로(guardrail_input/chat_responder
+                # 노드 span이 이 span의 자식으로 기록됨), WS 라우트는 그래프 내부를
+                # 몰라도 된다. "chunk" = 텍스트 조각, "state" = 최종 state 스냅샷.
+                async for kind, payload in stream_tutor_chat(chat_input):
+                    if kind == "chunk":
                         await websocket.send_json({"type": "chunk", "content": payload})
-                    elif stream_mode == "values":
-                        final_state = TutorChatState.model_validate(payload)
+                    elif kind == "state":
+                        final_state = payload
             except Exception as exc:  # 그래프 실행 자체가 예외를 던진 경우(설계상 흔치 않음)
                 await websocket.send_json(
                     {"type": "error", "detail": f"응답 생성 실패: {exc}"}

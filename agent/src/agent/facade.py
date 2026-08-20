@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import override
 
 from langfuse import observe, propagate_attributes
@@ -115,6 +116,36 @@ class TutorChatAgent(TutorChatAgentProtocol):
         )
 
 
+@observe(name="tutor-chat-request", as_type="span")
+async def stream_tutor_chat(
+    input: TutorChatInput,
+) -> AsyncIterator[tuple[str, object]]:
+    """WS 라우트 전용 스트리밍 진입점.
+
+    `TutorChatAgent.run()`(non-streaming)과 같은 그래프를 쓰지만, 조각을 실시간으로
+    넘겨준다는 점이 다르다. `@observe()`는 async generator를 감지하면 함수가 끝까지
+    소비될 때까지 span을 열어두므로(각 `__anext__()`를 보존된 컨텍스트에서 실행)
+    `guardrail_input`/`chat_responder` 노드의 span과 LangChain 콜백이 이 span의
+    자식으로 기록된다 — non-streaming 경로와 동일한 trace 구조를 얻는다.
+    백엔드가 LangGraph 상태의 내부 키를 몰라도 되도록, "custom"(텍스트 조각)은
+    ("chunk", str)로, "values"(최종 state 스냅샷)는 ("state", TutorChatState)로
+    감싸 넘긴다.
+    """
+    with propagate_attributes(
+        user_id=input.user_identifier,
+        session_id=input.session_id,
+        trace_name="tutor-chat-request",
+        metadata={"agent": "tutor_chat", "streaming": True},
+    ):
+        async for mode, payload in tutor_chat_app.astream(
+            TutorChatState(request=input), stream_mode=["custom", "values"]
+        ):
+            if mode == "custom":
+                yield "chunk", payload
+            elif mode == "values":
+                yield "state", TutorChatState.model_validate(payload)
+
+
 class RecommendAgent(RecommendAgentProtocol):
     """키워드 기반 문제 추천(하이브리드 RAG)의 백엔드 어댑터."""
 
@@ -123,4 +154,10 @@ class RecommendAgent(RecommendAgentProtocol):
         return await run_recommend(input)
 
 
-__all__ = ["AnalysisAgent", "RecommendAgent", "RubricAgent", "TutorChatAgent"]
+__all__ = [
+    "AnalysisAgent",
+    "RecommendAgent",
+    "RubricAgent",
+    "TutorChatAgent",
+    "stream_tutor_chat",
+]
