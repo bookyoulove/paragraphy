@@ -1192,6 +1192,11 @@ textarea {
   color: var(--muted);
   line-height: 1.5;
 }
+.score-created-at {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
 
 .criteria-list {
   display: flex;
@@ -1340,6 +1345,17 @@ textarea {
   font-size: 11px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+.proof-examples {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.proof-examples ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
 }
 
 .compare-section {

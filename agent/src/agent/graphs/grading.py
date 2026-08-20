@@ -66,7 +66,10 @@ def _build_prompt(state: GradingState) -> str:
 {state.request.user_answer}
 
 채점 기준과 같은 순서와 개수로 결과를 작성하라. criterion은 기준의 이름을 그대로 사용하라.
-참고 자료는 채점 판단의 근거로만 사용하고 학생 답안과 혼동하지 마라."""
+각 채점 기준마다 먼저 학생 답안에서 발견한 근거(rationale)와 개선 방향(improvement)을 작성한 뒤,
+그 판단을 바탕으로 마지막에 점수(score)를 결정하라. 구조화 출력 필드도 criterion, rationale,
+improvement, score, max_score 순서를 따른다. 참고 자료는 채점 판단의 근거로만 사용하고
+학생 답안과 혼동하지 마라."""
 
 
 type RawRubric = Rubric | RubricItem | Mapping[str, str | None]

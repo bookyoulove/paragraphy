@@ -15,10 +15,10 @@ class RubricItem(BaseModel):
 
 class CriterionScore(BaseModel):
     criterion: str
-    score: int = Field(ge=1, le=5)
-    max_score: int = 5
     rationale: str = ""
     improvement: str = ""
+    score: int = Field(ge=1, le=5)
+    max_score: int = 5
 
 
 class GradingOutput(BaseModel):
@@ -27,11 +27,13 @@ class GradingOutput(BaseModel):
     overall_comment: str = ""
     grammar_errors: list[GrammarError] = Field(default_factory=list)
 
+
 class GrammarError(BaseModel):
     type: str
     before: str
     after: str
     note: str
+
 
 def _empty_grammar_result() -> GrammarResult:
     return GrammarResult(

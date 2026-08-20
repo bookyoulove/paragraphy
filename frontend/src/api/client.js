@@ -1,6 +1,31 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+const AUTH_STORAGE_KEY = 'paragraphy.auth';
 
-let accessToken = null;
+function getAuthStorage() {
+  return typeof window === 'undefined' ? null : window.sessionStorage;
+}
+
+function readStoredAuth() {
+  const storage = getAuthStorage();
+  if (!storage) return null;
+  try {
+    const auth = JSON.parse(storage.getItem(AUTH_STORAGE_KEY) ?? 'null');
+    return auth?.identifier && auth?.token ? auth : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeAuth(auth) {
+  getAuthStorage()?.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+}
+
+function clearStoredAuth() {
+  getAuthStorage()?.removeItem(AUTH_STORAGE_KEY);
+}
+
+const storedAuth = readStoredAuth();
+let accessToken = storedAuth?.token ?? null;
 
 function toProblem(problem) {
   return {
@@ -18,6 +43,37 @@ function toProblem(problem) {
   };
 }
 
+function deriveCorrections(grammarResult) {
+  const helps = grammarResult?.helps ?? {};
+  const corrections = (grammarResult?.revised_blocks ?? []).flatMap((block) => {
+    if (block.origin === block.revised) return [];
+    const revisions = block.revisions?.length ? block.revisions : [{ revised: block.revised }];
+    return revisions.map((revision) => {
+      const help = revision.help_id ? helps[revision.help_id] : null;
+      return {
+        type: '첨삭',
+        before: block.origin,
+        after: revision.revised ?? block.revised,
+        note: help?.comment ?? '',
+        examples: help?.examples ?? [],
+        ruleArticle: help?.rule_article ?? '',
+      };
+    });
+  });
+
+  if (corrections.length) return corrections;
+  return (grammarResult?.revised_sentences ?? [])
+    .filter((item) => item.origin !== item.revised)
+    .map((item) => ({
+      type: '첨삭',
+      before: item.origin,
+      after: item.revised,
+      note: '',
+      examples: [],
+      ruleArticle: '',
+    }));
+}
+
 function toResult(result, answer, attempt = 1) {
   const scores = (result.criteria_scores ?? []).map((item) => ({
     label: item.criterion,
@@ -26,7 +82,7 @@ function toResult(result, answer, attempt = 1) {
     rationale: item.rationale ?? '',
     improvement: item.improvement ?? '',
   }));
-  const corrections = result.grammar_result?.revised_sentences ?? [];
+  const corrections = deriveCorrections(result.grammar_result);
 
   return {
     id: result.id,
@@ -37,12 +93,7 @@ function toResult(result, answer, attempt = 1) {
     answer,
     commentary: result.overall_comment ?? '',
     scores,
-    errors: corrections.map((item) => ({
-      type: '첨삭',
-      before: item.origin,
-      after: item.revised,
-      note: 'AI가 제안한 문장 수정입니다.',
-    })),
+    errors: corrections,
   };
 }
 
@@ -87,6 +138,11 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      accessToken = null;
+      clearStoredAuth();
+      window.dispatchEvent(new Event('paragraphy:auth-expired'));
+    }
     const message =
       response.status === 401
         ? '로그인이 만료되었거나 인증이 필요합니다.'
@@ -122,10 +178,17 @@ export const api = {
       body,
     });
     accessToken = response.access_token;
-    return { identifier: username, token: response.access_token };
+    const auth = { identifier: username, token: response.access_token };
+    storeAuth(auth);
+    return auth;
+  },
+  getStoredUser() {
+    const auth = readStoredAuth();
+    return auth ? { identifier: auth.identifier, token: auth.token } : null;
   },
   clearToken() {
     accessToken = null;
+    clearStoredAuth();
   },
   async getProblems() {
     return (await request('/problems/')).map(toProblem);
@@ -161,9 +224,9 @@ export const api = {
       }),
     );
   },
-  async saveAnswer(session, answer) {
+  async saveAnswer(session, answer, { createNew = false } = {}) {
     const payload = { user_answer: answer, status: 'draft' };
-    const response = session.answerId
+    const response = !createNew && session.answerId
       ? await request(`/sessions/${session.id}/answers/${session.answerId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
