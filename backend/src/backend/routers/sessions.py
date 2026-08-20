@@ -28,7 +28,6 @@ from backend.schema.analysis_session.input import (
     AnalysisSessionRequest,
 )
 from backend.schema.analysis_session.response import (
-    AnalysisSessionPublicWithProblem,
     AnalysisSessionPublicWithProblemAnswer,
 )
 from backend.schema.user_answer.input import (
@@ -71,7 +70,7 @@ class ProblemListQuery(BaseModel):
     created_by_user: bool | None
 
 
-@router.post("/", response_model=AnalysisSessionPublicWithProblem)
+@router.post("/", response_model=AnalysisSessionPublicWithProblemAnswer)
 def create_session(
     user_id: UserUUIDDep,
     request: AnalysisSessionRequest,

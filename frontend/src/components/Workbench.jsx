@@ -1,26 +1,39 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ResultPanel from './ResultPanel';
 import RubricModal from './RubricModal';
 
-const initialMode = (session, readOnly) => (readOnly || session?.answerSubmitted ? 'view' : 'edit');
+const initialMode = (session, readOnly, startNew) => {
+  if (readOnly) return 'view';
+  if (startNew) return 'new';
+  return session?.answerSubmitted ? 'view' : 'edit';
+};
 
-export default function Workbench({ problem, session, onSave, onGrade, readOnly = false }) {
-  const [answer, setAnswer] = useState(session?.answer || '');
-  const [name, setName] = useState(session?.answerName || '');
+export default function Workbench({
+  problem,
+  session,
+  onSave,
+  onGrade,
+  readOnly = false,
+  startNew = false,
+}) {
+  const navigate = useNavigate();
+  const [answer, setAnswer] = useState(startNew ? '' : session?.answer || '');
+  const [name, setName] = useState(startNew ? '' : session?.answerName || '');
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
-  const [mode, setMode] = useState(() => initialMode(session, readOnly));
+  const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
   const latestResult = session?.results.at(-1);
   const result = mode === 'new' ? null : latestResult;
   const editable = mode !== 'view';
   const pendingNewRound = mode === 'new';
   useEffect(() => {
-    setAnswer(session?.answer ?? '');
-    setName(session?.answerName ?? '');
+    setAnswer(startNew ? '' : (session?.answer ?? ''));
+    setName(startNew ? '' : (session?.answerName ?? ''));
     setSaved('');
-    setMode(initialMode(session, readOnly));
-  }, [session?.id, session?.answerId, readOnly]);
+    setMode(initialMode(session, readOnly, startNew));
+  }, [session?.id, readOnly, startNew]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -54,6 +67,21 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
   };
   const editor = (
     <section className="answer-box">
+      {pendingNewRound && session?.answers?.length > 0 && (
+        <div className="new-round-notice">
+          <span>
+            이 문제에 이전 답안 {session.answers.length}개가 있습니다. 새 답안은 새 회차로
+            저장됩니다.
+          </span>
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => navigate(`/history/${session.id}`)}
+          >
+            이전 답안 보기
+          </button>
+        </div>
+      )}
       <div className="answer-header">
         <div className="answer-title">{editable ? '답안 작성' : '답안 보기'}</div>
         {editable && (

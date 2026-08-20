@@ -3,12 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import CustomProblemForm from '../components/CustomProblemForm';
 import ProblemPicker from '../components/ProblemPicker';
 
-export default function ProblemsPage({ problems, onRefresh, onSelect, onGenerate, onCreate, onDeleteProblem, onRecommend }) {
+export default function ProblemsPage({
+  problems,
+  onRefresh,
+  onSelect,
+  onGenerate,
+  onCreate,
+  onDeleteProblem,
+  onRecommend,
+}) {
   const [tab, setTab] = useState('pick');
   const navigate = useNavigate();
   const selectProblem = async (problem) => {
     const session = await onSelect(problem);
-    navigate(`/sessions/${session.id}`);
+    navigate(`/sessions/${session.id}`, { state: { startNew: true } });
   };
   const createProblem = async (form) => {
     const session = await onCreate(form);
