@@ -1347,6 +1347,17 @@ textarea {
   color: var(--muted);
 }
 
+.proof-examples {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.proof-examples ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
 .compare-section {
   margin-top: 18px;
   background: #edf1f7;

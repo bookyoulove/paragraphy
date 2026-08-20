@@ -18,6 +18,37 @@ function toProblem(problem) {
   };
 }
 
+function deriveCorrections(grammarResult) {
+  const helps = grammarResult?.helps ?? {};
+  const corrections = (grammarResult?.revised_blocks ?? []).flatMap((block) => {
+    if (block.origin === block.revised) return [];
+    const revisions = block.revisions?.length ? block.revisions : [{ revised: block.revised }];
+    return revisions.map((revision) => {
+      const help = revision.help_id ? helps[revision.help_id] : null;
+      return {
+        type: '첨삭',
+        before: block.origin,
+        after: revision.revised ?? block.revised,
+        note: help?.comment ?? '',
+        examples: help?.examples ?? [],
+        ruleArticle: help?.rule_article ?? '',
+      };
+    });
+  });
+
+  if (corrections.length) return corrections;
+  return (grammarResult?.revised_sentences ?? [])
+    .filter((item) => item.origin !== item.revised)
+    .map((item) => ({
+      type: '첨삭',
+      before: item.origin,
+      after: item.revised,
+      note: '',
+      examples: [],
+      ruleArticle: '',
+    }));
+}
+
 function toResult(result, answer, attempt = 1) {
   const scores = (result.criteria_scores ?? []).map((item) => ({
     label: item.criterion,
@@ -26,7 +57,7 @@ function toResult(result, answer, attempt = 1) {
     rationale: item.rationale ?? '',
     improvement: item.improvement ?? '',
   }));
-  const corrections = result.grammar_result?.revised_sentences ?? [];
+  const corrections = deriveCorrections(result.grammar_result);
 
   return {
     id: result.id,
@@ -37,12 +68,7 @@ function toResult(result, answer, attempt = 1) {
     answer,
     commentary: result.overall_comment ?? '',
     scores,
-    errors: corrections.map((item) => ({
-      type: '첨삭',
-      before: item.origin,
-      after: item.revised,
-      note: 'AI가 제안한 문장 수정입니다.',
-    })),
+    errors: corrections,
   };
 }
 
