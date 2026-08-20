@@ -62,7 +62,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
           </main>
         </div>
       </div>
-      {user && isSessionPage && data.session?.results.length > 0 && <TutorChatModal session={data.session} onChat={api.chat} onLoadHistory={api.getChat} />}
+      {user && isSessionPage && data.session?.results.length > 0 && <TutorChatModal session={data.session} />}
       {!user && <LoginModal onLogin={actions.login} />}
     </>
   );

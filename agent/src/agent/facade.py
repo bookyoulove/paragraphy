@@ -106,9 +106,12 @@ class TutorChatAgent(TutorChatAgentProtocol):
         ):
             result_raw = await tutor_chat_app.ainvoke(TutorChatState(request=input))
         result = TutorChatState.model_validate(result_raw)
+        # 스트리밍 WS 경로는 blocked/error를 별도 메시지 타입으로 구분해 보내지만,
+        # 이 non-streaming 어댑터는 TutorChatOutput에 blocked 필드가 없으므로
+        # 차단 사유를 error로 승격해 호출자가 조용히 빈 응답을 받지 않게 한다.
         return TutorChatOutput(
             reply=result.reply,
-            error=result.error,
+            error=f"입력 검증에서 차단됨 ({result.block_reason})" if result.blocked else result.error,
         )
 
 
