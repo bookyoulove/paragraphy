@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import override
 
+from langfuse import observe, propagate_attributes
 from shared.protocol import (
     AnalysisAgentProtocol,
     RecommendAgentProtocol,
@@ -52,8 +53,14 @@ class RubricAgent(RubricAgentProtocol):
     """루브릭 초안 생성의 백엔드 어댑터."""
 
     @override
+    @observe(name="rubric-request")
     async def run(self, input: RubricGenerationRequest) -> RubricList:
-        result_raw = await rubric_app.ainvoke(RubricState(request=input))
+        with propagate_attributes(
+            user_id=input.user_identifier,
+            trace_name="rubric-request",
+            metadata={"agent": "rubric"},
+        ):
+            result_raw = await rubric_app.ainvoke(RubricState(request=input))
         result = RubricState.model_validate(result_raw)
         if result.error:
             raise ValueError(result.error)
@@ -64,8 +71,15 @@ class AnalysisAgent(AnalysisAgentProtocol):
     """문제 객체를 채점 그래프 입력으로 변환하는 백엔드 어댑터."""
 
     @override
+    @observe(name="grading-request")
     async def run(self, input: AnalysisRequest) -> AnalysisResult:
-        result_raw = await grading_app.ainvoke(GradingState(request=input))
+        with propagate_attributes(
+            user_id=input.user_identifier,
+            session_id=input.session_id,
+            trace_name="grading-request",
+            metadata={"agent": "grading", "problem_title": input.problem.title},
+        ):
+            result_raw = await grading_app.ainvoke(GradingState(request=input))
         result = GradingState.model_validate(result_raw)
         if result.error:
             raise ValueError(result.error)
@@ -82,9 +96,15 @@ class TutorChatAgent(TutorChatAgentProtocol):
     """튜터링 그래프의 백엔드 어댑터."""
 
     @override
+    @observe(name="tutor-chat-request")
     async def run(self, input: TutorChatInput) -> TutorChatOutput:
-
-        result_raw = await tutor_chat_app.ainvoke(TutorChatState(request=input))
+        with propagate_attributes(
+            user_id=input.user_identifier,
+            session_id=input.session_id,
+            trace_name="tutor-chat-request",
+            metadata={"agent": "tutor_chat"},
+        ):
+            result_raw = await tutor_chat_app.ainvoke(TutorChatState(request=input))
         result = TutorChatState.model_validate(result_raw)
         return TutorChatOutput(
             reply=result.reply,

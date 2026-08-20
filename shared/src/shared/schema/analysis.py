@@ -20,3 +20,7 @@ class AnalysisResult(SQLModel):
 class AnalysisRequest(BaseModel):
     user_answer: str
     problem: ProblemWithRubrics
+    # Langfuse trace 메타데이터용 (선택). 채점 로직에는 관여하지 않는다 —
+    # 백엔드가 알고 있는 사용자/세션 식별자를 관측용으로만 실어 보낸다.
+    user_identifier: str | None = None
+    session_id: str | None = None

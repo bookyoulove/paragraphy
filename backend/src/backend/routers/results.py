@@ -81,7 +81,14 @@ async def chat_with_tutor(
         )
 
     ctx = context.model_dump_json()
-    res = await chat_agent.run(TutorChatInput(context_text=ctx, history=history))
+    res = await chat_agent.run(
+        TutorChatInput(
+            context_text=ctx,
+            history=history,
+            user_identifier=str(result.user_answer.analysis_session.user_id),
+            session_id=str(result.user_answer.analysis_session.id),
+        )
+    )
 
     chat_message_db.create(
         ChatMessageCreate(chat_id=chat_session.id, role="assistant", content=res.reply)

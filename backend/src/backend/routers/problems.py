@@ -48,7 +48,10 @@ async def generate_rubric(
     user_id: UserUUIDDep,
     agent: RubricAgentDep,
 ):
-    rubric_list = await agent.run(request)
+    # user_identifier는 요청 바디가 아니라 인증된 user_id로 서버가 직접 채운다
+    # (클라이언트가 다른 사용자 식별자를 흉내 낼 수 없게 함 — 관측용 필드라도).
+    scoped_request = request.model_copy(update={"user_identifier": str(user_id)})
+    rubric_list = await agent.run(scoped_request)
     return rubric_list.rubrics
 
 

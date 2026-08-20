@@ -213,7 +213,12 @@ async def analysis_answer(
             detail="Answer not found.",
         )
     res = await agent.run(
-        AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem)
+        AnalysisRequest(
+            user_answer=user_answer.user_answer,
+            problem=session.problem,
+            user_identifier=str(session.user_id),
+            session_id=str(session_id),
+        )
     )
 
     if user_answer.analysis_result:
