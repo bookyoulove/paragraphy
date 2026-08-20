@@ -1879,6 +1879,25 @@ textarea {
   line-height: 1.45;
 }
 
+.weekly-problem-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #f5f7ff;
+}
+
+.weekly-problem-cta strong { color: var(--brand); }
+.weekly-problem-cta p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+
+.personalized-problem-section { margin: 18px 0; }
+.personalized-problem-heading { margin-bottom: 8px; color: var(--brand); font-size: 12px; font-weight: 800; }
+.personalized-problem-card { border-color: #c7d2fe; background: #f7f8ff; }
+
 .weekly-report-list,
 .skill-score-grid {
   display: grid;
@@ -2037,4 +2056,5 @@ textarea {
     align-items: flex-start;
     flex-direction: column;
   }
+  .weekly-problem-cta { align-items: flex-start; flex-direction: column; }
 }

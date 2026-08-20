@@ -5,6 +5,7 @@ erDiagram
     USERS ||--o{ USER_SKILL_REPORTS : has
     USERS ||--o{ COACH_MESSAGES : receives
     PROBLEMS ||--|{ RUBRICS : has
+    USER_SKILL_REPORTS o|--o{ PROBLEMS : generates
     ANALYSIS_SESSIONS ||--o{ USER_ANSWERS : has
     USER_ANSWERS ||--o| ANALYSIS_RESULTS : graded
     USER_SKILL_REPORTS ||--o{ COACH_MESSAGES : delivers
@@ -23,6 +24,7 @@ erDiagram
         string title
         bool created_by_user
         uuid user_id FK "nullable"
+        uuid source_report_id FK "nullable"
         string university "nullable"
         int year "nullable"
         text content

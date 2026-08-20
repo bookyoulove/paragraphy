@@ -336,6 +336,9 @@ export const api = {
       body: JSON.stringify({ recipient_email: recipientEmail }),
     });
   },
+  async generateProblemFromReport(reportId) {
+    return toProblem(await request(`/skill-reports/${reportId}/generated-problem`, { method: 'POST' }));
+  },
   async getChat(resultId) {
     try {
       const messages = await request(`/results/${resultId}/chat`);

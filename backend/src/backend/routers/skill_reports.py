@@ -11,6 +11,10 @@ from sqlmodel import select
 from backend.depends import (
     AnalysisResultDBDep,
     CoachMessageDBDep,
+    ProblemDBDep,
+    RecommendAgentDep,
+    RubricAgentDep,
+    RubricDBDep,
     SkillReportAgentDep,
     UserSkillReportDBDep,
     UserUUIDDep,
@@ -22,6 +26,9 @@ from backend.orm.models import (
     UserSkillReports,
 )
 from backend.schema.skill_report import UserSkillReportCreate, UserSkillReportPublic
+from backend.schema.problem.input import ProblemCreate
+from backend.schema.problem.response import ProblemPublicWithRubrics
+from backend.schema.rubric.input import RubricCreate
 from backend.schema.coach_message import (
     CoachMessageCreate,
     CoachMessagePublic,
@@ -29,8 +36,18 @@ from backend.schema.coach_message import (
 )
 from backend.services.email import render_weekly_report_html, send_weekly_report_email
 from shared.schema.skill_report import GradedAnswerReview, WeeklySkillReportRequest
+from shared.schema.recommend import RecommendRequest
+from shared.schema.rubric import RubricGenerationRequest
 
 router = APIRouter(prefix="/skill-reports", tags=["skill-reports"])
+
+SKILL_LABELS = {
+    "claim": "주장",
+    "evidence_relevance": "이유·근거의 적절성",
+    "evidence_sufficiency": "이유·근거의 충분성",
+    "counterargument": "다른 입장에 대한 고려",
+    "passage_summary": "지문 요약",
+}
 
 
 @router.get("/", response_model=list[UserSkillReportPublic])
@@ -59,6 +76,68 @@ def get_skill_report(
     if report.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다.")
     return UserSkillReportPublic.model_validate(report)
+
+
+@router.post("/{report_id}/generated-problem", response_model=ProblemPublicWithRubrics)
+async def generate_problem_from_report(
+    report_id: UUID,
+    user_id: UserUUIDDep,
+    report_db: UserSkillReportDBDep,
+    problem_db: ProblemDBDep,
+    rubric_db: RubricDBDep,
+    recommend_agent: RecommendAgentDep,
+    rubric_agent: RubricAgentDep,
+) -> ProblemPublicWithRubrics:
+    report = report_db.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+    if report.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다.")
+
+    if not report.skill_scores:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="취약 역량 정보가 없는 리포트입니다.",
+        )
+
+    weakest = min(report.skill_scores, key=lambda score: score.score)
+    weakest_label = SKILL_LABELS.get(weakest.key, weakest.key)
+    generated = await recommend_agent.run(
+        RecommendRequest(
+            keyword=(
+                f"{weakest_label} 역량을 보완하는 논증적 글쓰기. "
+                f"학습 개선 방향: {weakest.improvement}"
+            ),
+            force_generate=True,
+        )
+    )
+    if generated.generated is None:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="맞춤 문제 생성에 실패했습니다.")
+
+    problem = problem_db.create(
+        ProblemCreate(
+            user_id=user_id,
+            source_report_id=report.id,
+            created_by_user=True,
+            title=generated.generated.title,
+            content=generated.generated.content,
+            model_answer=None,
+        )
+    )
+    rubrics = await rubric_agent.run(
+        RubricGenerationRequest(content=problem.content, model_answer=None)
+    )
+    for rubric in rubrics.rubrics:
+        rubric_db.create(
+            RubricCreate(
+                problem_id=problem.id,
+                criteria=rubric.criteria,
+                description=rubric.description,
+            )
+        )
+    # 루브릭 관계를 다시 조회해 응답에 함께 담는다.
+    saved_problem = problem_db.get(problem.id)
+    return ProblemPublicWithRubrics.model_validate(saved_problem)
 
 
 def _recent_reviews(

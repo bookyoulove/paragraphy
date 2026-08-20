@@ -176,6 +176,7 @@ class ProblemBase(ProblemContent):
 class Problems(ProblemBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID | None = Field(None, foreign_key="users.id")
+    source_report_id: UUID | None = Field(None, foreign_key="user_skill_reports.id")
 
     user: Users | None = Relationship(back_populates="problems")
     rubrics: list["Rubrics"] = Relationship(back_populates="problem")

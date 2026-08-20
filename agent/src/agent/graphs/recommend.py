@@ -91,9 +91,10 @@ def _hybrid_search(keyword: str) -> list[RecommendedProblem]:
 
 
 def _build_generation_prompt(keyword: str) -> str:
-    return f"""너는 대입 논술 학습 플랫폼의 문제 출제 담당자다. 사용자가 "{keyword}"라는 키워드로
-기존 논증적 글쓰기 문항을 검색했지만 관련된 문제를 찾지 못했다. 이 키워드를 주제로 삼아 새로운
+    return f"""너는 대입 논술 학습 플랫폼의 문제 출제 담당자다. 다음 학습 목표를 반영해 새로운
 논증적 글쓰기 문항을 하나 작성하라.
+
+학습 목표: {keyword}
 
 형식 요구사항:
 - title: 문제의 핵심 쟁점을 나타내는 간결한 명사구 (예: "동물원 폐지", "로봇세 도입")
@@ -119,7 +120,7 @@ def _generate_problem(keyword: str) -> GeneratedProblem:
 
 
 async def run_recommend(request: RecommendRequest) -> RecommendResult:
-    matches = await asyncio.to_thread(_hybrid_search, request.keyword)
+    matches = [] if request.force_generate else await asyncio.to_thread(_hybrid_search, request.keyword)
     if matches:
         return RecommendResult(matches=matches, generated=None)
 

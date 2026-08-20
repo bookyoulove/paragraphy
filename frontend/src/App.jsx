@@ -60,7 +60,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
               <Route path="/compare" element={<ComparePage sessions={data.sessions} />} />
               <Route path="/compare/:sessionId" element={<ComparisonPage user={user} session={data.session} onLoad={actions.loadSession} />} />
               <Route path="/weekly-reports" element={<WeeklyReportsPage user={user} />} />
-              <Route path="/weekly-reports/:reportId" element={<WeeklyReportDetailPage user={user} />} />
+              <Route path="/weekly-reports/:reportId" element={<WeeklyReportDetailPage user={user} onRefreshProblems={actions.refreshProblems} />} />
               <Route path="*" element={<Navigate to="/problems" replace />} />
             </Routes>
           </main>

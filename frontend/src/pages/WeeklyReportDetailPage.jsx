@@ -10,7 +10,7 @@ const labels = {
   passage_summary: '지문 요약',
 };
 
-export default function WeeklyReportDetailPage({ user }) {
+export default function WeeklyReportDetailPage({ user, onRefreshProblems }) {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const [report, setReport] = useState(null);
@@ -18,6 +18,7 @@ export default function WeeklyReportDetailPage({ user }) {
   const [recipientEmail, setRecipientEmail] = useState('');
   const [mailStatus, setMailStatus] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [generatingProblem, setGeneratingProblem] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +41,18 @@ export default function WeeklyReportDetailPage({ user }) {
       setMailStatus(err.message || '메일 발송 요청에 실패했습니다.');
     } finally {
       setSendingEmail(false);
+    }
+  };
+  const generateProblem = async () => {
+    setGeneratingProblem(true);
+    try {
+      await api.generateProblemFromReport(report.id);
+      await onRefreshProblems();
+      navigate('/problems');
+    } catch (err) {
+      setError(err.message || '맞춤 문제 생성에 실패했습니다.');
+    } finally {
+      setGeneratingProblem(false);
     }
   };
   return (
@@ -69,6 +82,12 @@ export default function WeeklyReportDetailPage({ user }) {
           {mailStatus && <p role="status">{mailStatus}</p>}
         </form>
       </header>
+      <section className="weekly-problem-cta">
+        <div><strong>취약 영역 보완 문제</strong><p>이 리포트의 가장 낮은 역량을 집중적으로 연습할 새 문제를 만듭니다.</p></div>
+        <button className="primary-btn" type="button" onClick={generateProblem} disabled={generatingProblem}>
+          {generatingProblem ? '문제 생성 중...' : '맞춤 문제 만들기'}
+        </button>
+      </section>
       <div className="skill-score-grid">
         {report.skill_scores.map((score) => (
           <article className="skill-score-card" key={score.key}>
