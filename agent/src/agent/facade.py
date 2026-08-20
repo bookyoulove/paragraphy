@@ -13,19 +13,23 @@ from shared.protocol import (
     AnalysisAgentProtocol,
     RecommendAgentProtocol,
     RubricAgentProtocol,
+    SkillReportAgentProtocol,
     TutorChatAgentProtocol,
 )
 from shared.schema.analysis import AnalysisRequest, AnalysisResult
 from shared.schema.recommend import RecommendRequest, RecommendResult
 from shared.schema.rubric import Rubric, RubricGenerationRequest, RubricList
+from shared.schema.skill_report import WeeklySkillReportOutput, WeeklySkillReportRequest
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
 
 from agent.graphs.grading import grading_app
 from agent.graphs.recommend import run_recommend
 from agent.graphs.rubric import rubric_app
+from agent.graphs.skill_report import skill_report_app
 from agent.graphs.tutor import tutor_chat_app
 from agent.schemas.grading import AnalysisOutput, GradingState
 from agent.schemas.rubric import RubricGenerationOutput, RubricState
+from agent.schemas.skill_report import SkillReportState
 from agent.schemas.tutor import TutorChatState
 
 
@@ -100,4 +104,22 @@ class RecommendAgent(RecommendAgentProtocol):
         return await run_recommend(input)
 
 
-__all__ = ["AnalysisAgent", "RecommendAgent", "RubricAgent", "TutorChatAgent"]
+class SkillReportAgent(SkillReportAgentProtocol):
+    """Persisted grading evidence를 주간 역량 리포트로 변환하는 어댑터."""
+
+    @override
+    async def run(self, input: WeeklySkillReportRequest) -> WeeklySkillReportOutput:
+        result_raw = await skill_report_app.ainvoke(SkillReportState(request=input))
+        result = SkillReportState.model_validate(result_raw)
+        if result.error or result.report is None:
+            raise ValueError(result.error or "주간 리포트 결과가 비어 있습니다.")
+        return result.report
+
+
+__all__ = [
+    "AnalysisAgent",
+    "RecommendAgent",
+    "RubricAgent",
+    "SkillReportAgent",
+    "TutorChatAgent",
+]

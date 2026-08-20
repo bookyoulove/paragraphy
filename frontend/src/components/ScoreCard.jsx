@@ -1,7 +1,24 @@
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
 import { formatCreatedAt } from '../utils/formatters';
 
 export default function ScoreCard({ result }) {
   const pct = Math.round((result.score / result.totalMax) * 100);
+  const [ranking, setRanking] = useState(null);
+  const [rankingLoading, setRankingLoading] = useState(false);
+
+  useEffect(() => {
+    if (!result?.id) return undefined;
+    let cancelled = false;
+    setRanking(null);
+    setRankingLoading(true);
+    api.getRanking(result.id)
+      .then((data) => !cancelled && setRanking(data))
+      .catch(() => !cancelled && setRanking(null))
+      .finally(() => !cancelled && setRankingLoading(false));
+    return () => { cancelled = true; };
+  }, [result?.id]);
+
   return (
     <div className="score-card">
       <div className="score-ring-wrap">
@@ -12,7 +29,15 @@ export default function ScoreCard({ result }) {
           </div>
         </div>
         <div className="score-text">
-          <div className="score-title">항목별 채점 결과</div>
+          <div className="score-heading">
+            <div className="score-title">항목별 채점 결과</div>
+            {rankingLoading && <span className="ranking-status">순위 계산 중</span>}
+            {ranking && (
+              <span className="ranking-badge" title={`같은 문제의 풀이 ${ranking.attempt_count}개 기준`}>
+                전체 {ranking.attempt_count}개 풀이 중 {ranking.rank}위
+              </span>
+            )}
+          </div>
           <div className="score-sub">각 평가 항목의 근거와 개선 방향을 확인해 보세요.</div>
           {result.createdAt && (
             <div className="score-created-at">채점 요청 시각 · {formatCreatedAt(result.createdAt)}</div>

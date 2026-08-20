@@ -320,6 +320,25 @@ export const api = {
   async getSession(sessionId) {
     return toSession(await request(`/sessions/${sessionId}`));
   },
+  async getRanking(resultId) {
+    return request(`/results/${resultId}/ranking`);
+  },
+  async getSkillReports() {
+    return request('/skill-reports/');
+  },
+  async getSkillReport(reportId) {
+    return request(`/skill-reports/${reportId}`);
+  },
+  async sendSkillReportEmail(reportId, recipientEmail) {
+    return request(`/skill-reports/${reportId}/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient_email: recipientEmail }),
+    });
+  },
+  async generateProblemFromReport(reportId) {
+    return toProblem(await request(`/skill-reports/${reportId}/generated-problem`, { method: 'POST' }));
+  },
   async getChat(resultId) {
     try {
       const messages = await request(`/results/${resultId}/chat`);
