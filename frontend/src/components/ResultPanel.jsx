@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CompareTable from './CompareTable';
+import ProofList from './ProofList';
 import ScoreCard from './ScoreCard';
 
 export default function ResultPanel({ sessionId, result, results }) {
@@ -52,35 +53,7 @@ export default function ResultPanel({ sessionId, result, results }) {
               <div className="proof-text">채점 후 문법 및 첨삭 항목이 표시됩니다.</div>
             </div>
           ) : (
-            <>
-              <div className="proof-count">감지된 오류 {result.errors.length}건</div>
-              <div className="proof-list">
-                {result.errors.map((item) => (
-                  <div className="proof-box" key={item.before}>
-                    <div className="proof-tag warning">{item.type}</div>
-                    <div className="proof-text">
-                      <del>{item.before}</del> → {item.after}
-                    </div>
-                    {item.note && <div className="proof-meta">{item.note}</div>}
-                    {item.ruleArticle && (
-                      <div className="proof-meta">
-                        <strong>관련 규정</strong> {item.ruleArticle}
-                      </div>
-                    )}
-                    {item.examples?.length > 0 && (
-                      <div className="proof-examples">
-                        <strong>예시</strong>
-                        <ul>
-                          {item.examples.map((example) => (
-                            <li key={example}>{example}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
+            <ProofList errors={result.errors} />
           )}
         </div>
       </div>
