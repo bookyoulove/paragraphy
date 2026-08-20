@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from shared.schema.analysis import AnalysisRequest
+from sqlalchemy.exc import IntegrityError
 
 from backend.depends import (
     AnalysisAgentDep,
@@ -79,9 +80,21 @@ def create_session(
     existing = analysis_session_db.get_by_user_and_problem(user_id, request.problem_id)
     if existing:
         return existing
-    return analysis_session_db.create(
-        AnalysisSessionCreate(user_id=user_id, problem_id=request.problem_id)
-    )
+
+    try:
+        return analysis_session_db.create(
+            AnalysisSessionCreate(user_id=user_id, problem_id=request.problem_id)
+        )
+    except IntegrityError:
+        # The unique constraint handles two simultaneous requests. Return the
+        # session created by the competing request instead of leaking a 500.
+        analysis_session_db.session.rollback()
+        existing = analysis_session_db.get_by_user_and_problem(
+            user_id, request.problem_id
+        )
+        if existing:
+            return existing
+        raise
 
 
 class UpsertResult(BaseModel):
@@ -118,7 +131,9 @@ def update_session_answer(
     updated = user_answer_db.update(answer_id, UserAnswerUpdate(**update_fields))
     assert updated is not None
 
-    return UpsertResult(answer_id=answer_id, name=updated.name, created_at=updated.created_at)
+    return UpsertResult(
+        answer_id=answer_id, name=updated.name, created_at=updated.created_at
+    )
 
 
 @router.post("/{session_id}/answers")
@@ -138,6 +153,7 @@ def insert_session_answer(
             name=name,
         )
     )
+
     return UpsertResult(
         answer_id=new_answer.id, name=new_answer.name, created_at=new_answer.created_at
     )
@@ -163,7 +179,9 @@ def rename_session_answer(
     return RenameResult(answer_id=answer_id, name=updated.name)
 
 
-@router.delete("/{session_id}/answers/{answer_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{session_id}/answers/{answer_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 def delete_session_answer(
     session_id: UUID,
     answer_id: UUID,
@@ -180,7 +198,9 @@ def delete_session_answer(
             detail="Answer not found.",
         )
 
-    delete_answer_cascade(answer, analysis_result_db, chat_session_db, chat_message_db, user_answer_db)
+    delete_answer_cascade(
+        answer, analysis_result_db, chat_session_db, chat_message_db, user_answer_db
+    )
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -193,7 +213,9 @@ def delete_session(
     analysis_session_db: AnalysisSessionDBDep,
     session: ValidSessionDep,
 ):
-    delete_session_cascade(session, analysis_result_db, chat_session_db, chat_message_db, user_answer_db)
+    delete_session_cascade(
+        session, analysis_result_db, chat_session_db, chat_message_db, user_answer_db
+    )
     analysis_session_db.delete(session_id)
 
 

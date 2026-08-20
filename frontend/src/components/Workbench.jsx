@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import ResultPanel from './ResultPanel';
 import RubricModal from './RubricModal';
 
-const initialMode = (session, readOnly) =>
-  readOnly || session?.answerSubmitted ? 'view' : 'edit';
+const initialMode = (session, readOnly) => (readOnly || session?.answerSubmitted ? 'view' : 'edit');
 
 export default function Workbench({ problem, session, onSave, onGrade, readOnly = false }) {
   const [answer, setAnswer] = useState(session?.answer || '');
@@ -92,6 +91,7 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
       ) : (
         <div className="answer-actions">
           <span className="save-status" />
+
           <button
             className="primary-btn"
             onClick={() => {

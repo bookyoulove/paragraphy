@@ -11,6 +11,7 @@ from shared.schema.grammar import GrammarResult
 from shared.schema.problem import ProblemContent
 from shared.schema.rubric import Rubric as RubricBase
 from shared.schema.tutor import ChatMessage as ChatMessageBase
+from sqlalchemy import UniqueConstraint
 from sqlmodel import (
     JSON,
     Column,
@@ -119,6 +120,7 @@ ANALYSIS_SESSIONS {
     uuid id PK
     uuid user_id FK
     uuid problem_id FK
+    UNIQUE (user_id, problem_id)
     datetime created_at
 }
 """
@@ -130,6 +132,14 @@ class AnalysisSessionBase(SQLModel):
 
 class AnalysisSessions(AnalysisSessionBase, TimeStampMixin, table=True):
     __tablename__ = "analysis_sessions"  # type: ignore
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "problem_id",
+            name="uq_analysis_sessions_user_problem",
+        ),
+    )
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="users.id")
     problem_id: UUID = Field(foreign_key="problems.id")
@@ -167,6 +177,7 @@ class UserAnswerBase(SQLModel):
 
 class UserAnswers(UserAnswerBase, TimeStampMixin, table=True):
     __tablename__ = "user_answers"  # type: ignore
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     session_id: UUID = Field(foreign_key="analysis_sessions.id")
 
