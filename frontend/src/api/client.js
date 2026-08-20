@@ -187,6 +187,9 @@ export const api = {
   async getSession(sessionId) {
     return toSession(await request(`/sessions/${sessionId}`));
   },
+  async getRanking(resultId) {
+    return request(`/results/${resultId}/ranking`);
+  },
   async getChat(resultId) {
     try {
       const messages = await request(`/results/${resultId}/chat`);

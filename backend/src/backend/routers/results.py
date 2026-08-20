@@ -13,7 +13,7 @@ from backend.depends import (
     TutorChatAgentDep,
     UserUUIDDep,
 )
-from backend.orm.models import AnalysisResults, AnalysisSessions, Status, UserAnswers
+from backend.orm.models import AnalysisResults, AnalysisSessions, UserAnswers
 from backend.schema.analysis_result.response import (
     AnalysisResultPublicWithProblemAnswer,
 )
@@ -77,20 +77,12 @@ def get_result_ranking(
     result_db: AnalysisResultDBDep,
 ) -> ResultRanking:
     """Calculate a live rank without persisting a stale aggregate."""
-    current_answer = result.user_answer
-    if current_answer.status != Status.SUBMITTED:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="제출 완료된 답안만 순위를 확인할 수 있습니다.",
-        )
-
-    problem_id = current_answer.analysis_session.problem_id
+    problem_id = result.user_answer.analysis_session.problem_id
     statement = (
         select(AnalysisResults)
         .join(UserAnswers, AnalysisResults.answer_id == UserAnswers.id)
         .join(AnalysisSessions, UserAnswers.session_id == AnalysisSessions.id)
         .where(AnalysisSessions.problem_id == problem_id)
-        .where(UserAnswers.status == Status.SUBMITTED)
     )
     attempts = [
         candidate

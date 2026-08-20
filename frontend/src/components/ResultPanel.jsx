@@ -1,8 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
 
 export default function ResultPanel({ result, results }) {
   const [tab, setTab] = useState('grade');
+  const [ranking, setRanking] = useState(null);
+  const [rankingLoading, setRankingLoading] = useState(false);
   const pct = result ? Math.round((result.score / result.totalMax) * 100) : 0;
+
+  useEffect(() => {
+    if (!result?.id) {
+      setRanking(null);
+      return undefined;
+    }
+    let cancelled = false;
+    setRanking(null);
+    setRankingLoading(true);
+    api.getRanking(result.id)
+      .then((data) => {
+        if (!cancelled) setRanking(data);
+      })
+      .catch(() => {
+        if (!cancelled) setRanking(null);
+      })
+      .finally(() => {
+        if (!cancelled) setRankingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [result?.id]);
+
   return (
     <aside className="right-panel">
       <div className="tabs">
@@ -35,7 +62,15 @@ export default function ResultPanel({ result, results }) {
                   </div>
                 </div>
                 <div className="score-text">
-                  <div className="score-title">항목별 채점 결과</div>
+                  <div className="score-heading">
+                    <div className="score-title">항목별 채점 결과</div>
+                    {rankingLoading && <span className="ranking-status">순위 계산 중</span>}
+                    {ranking && (
+                      <span className="ranking-badge" title={`같은 문제의 풀이 ${ranking.attempt_count}개 기준`}>
+                        전체 {ranking.attempt_count}개 풀이 중 {ranking.rank}위
+                      </span>
+                    )}
+                  </div>
                   <div className="score-sub">각 평가 항목의 근거와 개선 방향을 확인해 보세요.</div>
                 </div>
               </div>

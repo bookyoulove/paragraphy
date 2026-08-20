@@ -1182,10 +1182,34 @@ textarea {
 .score-text {
   flex: 1;
 }
+.score-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .score-title {
   font-size: 14px;
   font-weight: 700;
   margin-bottom: 6px;
+}
+.ranking-badge,
+.ranking-status {
+  flex-shrink: 0;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 8px;
+}
+.ranking-badge {
+  background: #eef2ff;
+  color: var(--brand);
+}
+.ranking-status {
+  color: var(--muted);
+  background: #f1f5f9;
 }
 .score-sub {
   font-size: 12px;
