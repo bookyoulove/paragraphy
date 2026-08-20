@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AnnotatedAnswer from './AnnotatedAnswer';
 import ResultPanel from './ResultPanel';
 import RubricModal from './RubricModal';
 
@@ -12,6 +13,8 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
   const [mode, setMode] = useState(() => initialMode(session, readOnly));
+  const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
+  const [proofFocusId, setProofFocusId] = useState(0);
   const latestResult = session?.results.at(-1);
   const result = mode === 'new' ? null : latestResult;
   const editable = mode !== 'view';
@@ -21,6 +24,7 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
     setName(session?.answerName ?? '');
     setSaved('');
     setMode(initialMode(session, readOnly));
+    setSelectedCorrectionIndex(null);
   }, [session?.id, session?.answerId, readOnly]);
   if (!problem)
     return (
@@ -70,14 +74,25 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
         <div className="word-counter">{answer.trim().length}자</div>
       </div>
       <div className="highlight-wrap">
-        <textarea
-          className="answer-input"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          placeholder="여기에 답안을 작성하세요."
-          readOnly={!editable}
-          spellCheck="false"
-        />
+        {!editable && result ? (
+          <AnnotatedAnswer
+            text={answer}
+            corrections={result.errors}
+            selectedIndex={selectedCorrectionIndex}
+            onSelect={(index) => {
+              setSelectedCorrectionIndex(index);
+              if (index !== null) setProofFocusId((value) => value + 1);
+            }}
+          />
+        ) : (
+          <textarea
+            className="answer-input"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="여기에 답안을 작성하세요."
+            spellCheck="false"
+          />
+        )}
       </div>
       {editable ? (
         <div className="answer-actions">
@@ -131,7 +146,14 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
         <section className="column-slot">{result ? editor : detail}</section>
         <section className="column-slot">
           {result ? (
-            <ResultPanel sessionId={session.id} result={result} results={session.results} />
+            <ResultPanel
+              sessionId={session.id}
+              result={result}
+              results={session.results}
+              selectedCorrectionIndex={selectedCorrectionIndex}
+              proofFocusId={proofFocusId}
+              onSelectCorrection={setSelectedCorrectionIndex}
+            />
           ) : (
             editor
           )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import AnnotatedAnswer from '../components/AnnotatedAnswer';
 import ProofList from '../components/ProofList';
 import ScoreCard from '../components/ScoreCard';
 import { formatWrittenAt } from '../utils/formatters';
@@ -8,6 +9,7 @@ export default function AnswerDetailPage({ user, session, onLoad }) {
   const { sessionId, answerId } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState('grade');
+  const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
   const isCurrentSession = String(session?.id) === sessionId;
   useEffect(() => {
     if (user && !isCurrentSession) onLoad(sessionId);
@@ -27,7 +29,15 @@ export default function AnswerDetailPage({ user, session, onLoad }) {
           </div>
           <div className="label-sub">{formatWrittenAt(answer.createdAt)}</div>
           <div className="highlight-wrap">
-            <textarea className="answer-input" value={answer.userAnswer} readOnly spellCheck="false" />
+            <AnnotatedAnswer
+              text={answer.userAnswer}
+              corrections={answer.result?.errors ?? []}
+              selectedIndex={selectedCorrectionIndex}
+              onSelect={(index) => {
+                setSelectedCorrectionIndex(index);
+                if (index !== null) setTab('proof');
+              }}
+            />
           </div>
           <div className="answer-actions">
             <button className="ghost-btn" onClick={() => navigate(`/history/${sessionId}`)}>
@@ -59,7 +69,11 @@ export default function AnswerDetailPage({ user, session, onLoad }) {
                   <ScoreCard result={answer.result} />
                 </div>
                 <div className={`tab-panel ${tab === 'proof' ? 'active' : ''}`}>
-                  <ProofList errors={answer.result.errors} />
+                  <ProofList
+                    errors={answer.result.errors}
+                    selectedIndex={selectedCorrectionIndex}
+                    onSelect={setSelectedCorrectionIndex}
+                  />
                 </div>
               </div>
             </>
