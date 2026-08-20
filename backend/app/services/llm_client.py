@@ -12,6 +12,7 @@ Rubric/Grading/Chatting 에이전트가 전부 이 모듈의 `chat_completion()`
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 
@@ -51,6 +52,7 @@ def chat_completion(
     model: str | None = None,
     max_tokens: int = 1024,
     temperature: float | None = None,
+    stream: bool = False,
 ) -> str:
     """messages를 AI Cloud 게이트웨이로 보내고 assistant 응답 텍스트를 반환한다.
 
@@ -61,10 +63,18 @@ def chat_completion(
         temperature: 게이트웨이 뒷단 모델(Claude)이 이 파라미터를 지원하지 않는
             경우(400 "temperature is deprecated for this model")가 있어 기본값은
             아예 보내지 않음(None). 필요할 때만 명시적으로 넘긴다.
+        stream: True면 내부적으로 `chat_completion_stream()`(스트리밍 호출)을 소비해
+            조각을 이어붙인 뒤 한 번에 반환한다 — 호출부가 여러 곳(Grading/Feedback/
+            Rubric 에이전트)에서 이미 "완성된 문자열"을 기대하므로 반환 타입은 그대로
+            유지. 토큰 단위로 그때그때 내보내야 하면(Tutor Chat 등) 이 함수 대신
+            `chat_completion_stream()`을 직접 써라.
 
     Raises:
         LLMClientError: API 키 미설정 또는 호출 실패 시.
     """
+    if stream:
+        return "".join(chat_completion_stream(messages, model=model, max_tokens=max_tokens, temperature=temperature))
+
     client = _get_client()
     kwargs = {"model": model or settings.ai_cloud_model, "messages": messages, "max_tokens": max_tokens}
     if temperature is not None:
@@ -105,6 +115,71 @@ def chat_completion(
     return content
 
 
+def chat_completion_stream(
+    messages: list[ChatCompletionMessageParam],
+    *,
+    model: str | None = None,
+    max_tokens: int = 1024,
+    temperature: float | None = None,
+) -> Iterator[str]:
+    """messages를 AI Cloud 게이트웨이에 스트리밍 모드로 보내고, 도착하는 텍스트 조각을
+    그때그때 yield한다 (제너레이터 — 실제 네트워크 호출은 첫 반복 시작 시 일어난다).
+
+    Tutor Chat처럼 사용자에게 타이핑 효과로 보여줘야 하는 경우에 쓴다. Grading/Feedback/
+    Rubric 에이전트처럼 완성된 JSON 문자열이 필요한 곳은 그대로 `chat_completion()`을 쓰면 된다.
+
+    Raises:
+        LLMClientError: API 키 미설정, 호출 자체 실패, 스트림 도중 오류, 또는 스트림이
+            끝날 때까지 텍스트 조각을 하나도 받지 못한 경우.
+    """
+    client = _get_client()
+    kwargs = {
+        "model": model or settings.ai_cloud_model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "stream": True,
+    }
+    if temperature is not None:
+        kwargs["temperature"] = temperature
+
+    try:
+        response_stream = client.chat.completions.create(**kwargs)
+    except Exception as exc:
+        logger.error(
+            "스트리밍 게이트웨이 호출 자체 실패: %s | model=%s max_tokens=%s", exc, kwargs["model"], max_tokens
+        )
+        raise LLMClientError(f"AI Cloud 게이트웨이 스트리밍 호출 실패: {exc}") from exc
+
+    received_any = False
+    last_finish_reason = None
+    try:
+        for event in response_stream:
+            if not event.choices:
+                continue
+            choice = event.choices[0]
+            last_finish_reason = choice.finish_reason or last_finish_reason
+            delta = choice.delta.content
+            if delta:
+                received_any = True
+                yield delta
+    except LLMClientError:
+        raise
+    except Exception as exc:  # 스트림을 순회하는 도중(네트워크 등) 발생하는 오류
+        logger.error("스트리밍 도중 오류: %s | model=%s max_tokens=%s", exc, kwargs["model"], max_tokens)
+        raise LLMClientError(f"AI Cloud 게이트웨이 스트리밍 중 오류: {exc}") from exc
+
+    if not received_any:
+        logger.error(
+            "스트리밍 응답에서 텍스트 조각을 하나도 받지 못함. finish_reason=%s model=%s max_tokens=%s",
+            last_finish_reason,
+            kwargs["model"],
+            max_tokens,
+        )
+        raise LLMClientError(
+            f"AI Cloud 게이트웨이 스트리밍 응답에 내용이 없습니다 (finish_reason={last_finish_reason})."
+        )
+
+
 if __name__ == "__main__":
     # 스모크 테스트: 실제 게이트웨이로 샘플 메시지 하나가 정상 응답하는지 확인.
     reply = chat_completion(
@@ -122,3 +197,9 @@ if __name__ == "__main__":
     print(settings.ai_cloud_model)
     print("=== 응답 ===")
     print(reply)
+
+    print("\n=== 스트리밍 응답 (chat_completion_stream) ===")
+    for chunk in chat_completion_stream(
+        [{"role": "user", "content": "1부터 5까지 숫자를 하나씩 세어줘."}], max_tokens=200
+    ):
+        print(f"[chunk] {chunk!r}")

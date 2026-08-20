@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
-import RubricEditor from './components/RubricEditor.jsx'
+import RubricSection from './components/RubricSection.jsx'
 import { GradingTab, FeedbackTab } from './components/ResultPanel.jsx'
 import ChatPanel from './components/ChatPanel.jsx'
 import HistoryView from './components/HistoryView.jsx'
@@ -21,7 +21,6 @@ export default function App() {
   const [problems, setProblems] = useState([])
   const [selectedProblemId, setSelectedProblemId] = useState('')
   const [selectedProblem, setSelectedProblem] = useState(null)
-  const [problemCollapsed, setProblemCollapsed] = useState(false)
 
   const [customContent, setCustomContent] = useState('')
   const [customModelAnswer, setCustomModelAnswer] = useState('')
@@ -157,70 +156,67 @@ export default function App() {
 
       {error && <div className="banner banner-error">{error}</div>}
 
-      <main className="app-grid-2col">
-        <section className="panel editor-panel">
+      <main className="app-grid-3col">
+        <section className="panel problem-panel">
           <div className="section-head">
             <h2>논술 문항</h2>
-            <button type="button" className="link-button" onClick={() => setProblemCollapsed((v) => !v)}>
-              {problemCollapsed ? '펼치기' : '접기'}
+          </div>
+
+          <div className="mode-toggle">
+            <button type="button" className={mode === 'bank' ? 'active' : ''} onClick={() => setMode('bank')}>
+              문제은행에서 선택
+            </button>
+            <button type="button" className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>
+              직접 입력
             </button>
           </div>
 
-          {!problemCollapsed && (
-            <>
-              <div className="mode-toggle">
-                <button type="button" className={mode === 'bank' ? 'active' : ''} onClick={() => setMode('bank')}>
-                  문제은행에서 선택
-                </button>
-                <button type="button" className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>
-                  직접 입력
-                </button>
-              </div>
+          <div className="problem-scroll-area">
+            {mode === 'bank' ? (
+              <>
+                <select value={selectedProblemId} onChange={(e) => setSelectedProblemId(e.target.value)}>
+                  <option value="">-- 문제 선택 --</option>
+                  {problems.map((p) => (
+                    <option key={p.problem_id} value={p.problem_id}>
+                      [{p.university || '기타'}
+                      {p.year ? ` ${p.year}` : ''}] {p.title}
+                    </option>
+                  ))}
+                </select>
+                {selectedProblem && (
+                  <>
+                    <div className="problem-content">{selectedProblem.content}</div>
+                    <RubricSection items={selectedProblem.rubrics} editable={false} onChange={() => {}} />
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <textarea
+                  className="problem-input"
+                  placeholder="문제(및 지문)를 입력하세요"
+                  value={customContent}
+                  onChange={(e) => setCustomContent(e.target.value)}
+                />
+                <textarea
+                  className="model-answer-input"
+                  placeholder="모범답안 (선택)"
+                  value={customModelAnswer}
+                  onChange={(e) => setCustomModelAnswer(e.target.value)}
+                />
+                <RubricSection
+                  items={customRubric}
+                  editable
+                  onChange={setCustomRubric}
+                  onSuggest={handleSuggestRubric}
+                  suggesting={suggesting}
+                />
+              </>
+            )}
+          </div>
+        </section>
 
-              {mode === 'bank' ? (
-                <>
-                  <select value={selectedProblemId} onChange={(e) => setSelectedProblemId(e.target.value)}>
-                    <option value="">-- 문제 선택 --</option>
-                    {problems.map((p) => (
-                      <option key={p.problem_id} value={p.problem_id}>
-                        [{p.university || '기타'}
-                        {p.year ? ` ${p.year}` : ''}] {p.title}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedProblem && (
-                    <>
-                      <div className="problem-content">{selectedProblem.content}</div>
-                      <RubricEditor items={selectedProblem.rubrics} editable={false} onChange={() => {}} />
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  <textarea
-                    className="problem-input"
-                    placeholder="문제(및 지문)를 입력하세요"
-                    value={customContent}
-                    onChange={(e) => setCustomContent(e.target.value)}
-                  />
-                  <textarea
-                    className="model-answer-input"
-                    placeholder="모범답안 (선택)"
-                    value={customModelAnswer}
-                    onChange={(e) => setCustomModelAnswer(e.target.value)}
-                  />
-                  <RubricEditor
-                    items={customRubric}
-                    editable
-                    onChange={setCustomRubric}
-                    onSuggest={handleSuggestRubric}
-                    suggesting={suggesting}
-                  />
-                </>
-              )}
-            </>
-          )}
-
+        <section className="panel answer-panel">
           <div className="section-head">
             <h2>답안 작성</h2>
             <span className="muted">{essayText.length}자</span>

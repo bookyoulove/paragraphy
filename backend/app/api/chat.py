@@ -7,11 +7,20 @@
 메시지 프로토콜 (JSON):
   서버 -> 클라이언트: {"type": "ready", "history": [...]}                (연결 직후, 과거 대화 이력)
   클라이언트 -> 서버:  평문 텍스트 (질문 메시지)
-  서버 -> 클라이언트: {"type": "message", "role": "assistant", "content": "..."}
+  서버 -> 클라이언트: {"type": "chunk", "content": "..."}                (스트리밍 조각, 여러 번)
+  서버 -> 클라이언트: {"type": "done"}                                   (스트리밍 끝, 정상 완료)
+  서버 -> 클라이언트: {"type": "blocked", "reason": "..."}               (입력 가드레일 차단 — LLM 호출 자체를 안 함)
   서버 -> 클라이언트: {"type": "error", "detail": "..."}                 (오류 시, 연결은 유지)
 
 result_id는 연결 시점에 서버가 검증한 값만 이후 모든 메시지 처리에 쓴다 — 채팅 중 사용자가
 다른 식별자를 언급해도 그 값이 Tool 조회에 쓰이지 않는다 (컴포넌트 설계서 4.4 위험 시나리오 대응).
+
+주의: `tutor_chat_app.stream(...)`은 동기(sync) 제너레이터라, 그걸 순회하는 동안(=LLM
+게이트웨이 응답을 기다리는 동안) 이 이벤트 루프가 막힌다. 이 프로젝트의 다른 라우트(HTTP
+`/api/grading`, `/api/feedback`)도 전부 동기 SQLAlchemy/openai 클라이언트를 그대로 쓰는
+동일한 방식이라 새로 생긴 문제는 아니지만, 여러 WS 연결을 동시에 받는 배포에서는 스레드
+분리(`run_in_threadpool`) 등을 고려해야 한다 — 지금 단계(단일 사용자 확인용 프로토타입)에서는
+범위 밖으로 남겨둔다.
 """
 
 from __future__ import annotations
@@ -78,17 +87,35 @@ async def chat_ws(websocket: WebSocket, result_id: str, user_identifier: str) ->
             db.commit()
             history.append({"role": "user", "content": user_text})
 
-            result = tutor_chat_app.invoke({"context_text": context_text, "history": history})
-            if result.get("error"):
-                await websocket.send_json({"type": "error", "detail": f"응답 생성 실패: {result['error']}"})
+            graph_input = {"context_text": context_text, "history": history, "user_message": user_text}
+            final_state: dict = {}
+            try:
+                # "custom" 모드 = chat_responder 노드가 writer()로 흘려보내는 텍스트 조각.
+                # "values" 모드 = 각 노드 실행 후의 전체 state 스냅샷 — 마지막 값이 최종 결과.
+                for stream_mode, payload in tutor_chat_app.stream(graph_input, stream_mode=["custom", "values"]):
+                    if stream_mode == "custom":
+                        await websocket.send_json({"type": "chunk", "content": payload})
+                    elif stream_mode == "values":
+                        final_state = payload
+            except Exception as exc:  # 그래프 실행 자체가 예외를 던진 경우(설계상 흔치 않음)
+                await websocket.send_json({"type": "error", "detail": f"응답 생성 실패: {exc}"})
                 continue
 
-            reply = result["reply"]
+            if final_state.get("blocked"):
+                # 가드레일 차단 — chat_responder가 아예 실행되지 않아 chunk도, LLM 호출도 없었다.
+                await websocket.send_json({"type": "blocked", "reason": final_state.get("block_reason", "")})
+                continue
+
+            if final_state.get("error"):
+                await websocket.send_json({"type": "error", "detail": f"응답 생성 실패: {final_state['error']}"})
+                continue
+
+            reply = final_state.get("reply", "")
             db.add(ChatMessage(chat_id=chat_session.chat_id, role="assistant", content=reply))
             db.commit()
             history.append({"role": "assistant", "content": reply})
 
-            await websocket.send_json({"type": "message", "role": "assistant", "content": reply})
+            await websocket.send_json({"type": "done"})
     except WebSocketDisconnect:
         pass
     finally:
