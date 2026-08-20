@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Workbench from '../components/Workbench';
 
-export default function SessionPage({ user, session, onLoad, onSave, onGrade }) {
+export default function SessionPage({ user, session, onLoad, onSave, onGrade, onRename }) {
   const { sessionId } = useParams();
   const isCurrentSession = String(session?.id) === sessionId;
   useEffect(() => {
@@ -14,6 +14,6 @@ export default function SessionPage({ user, session, onLoad, onSave, onGrade }) 
     session={session}
     onSave={onSave}
     onGrade={onGrade}
-    readOnly={Boolean(session.results.length)}
+    onRename={onRename}
   />;
 }

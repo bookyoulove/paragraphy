@@ -19,7 +19,7 @@ export default function TutorChatModal({ session, onChat, onLoadHistory }) {
         ? { role: 'assistant', text: '채점이 완료되었습니다! 궁금한 점을 Tutor에게 물어보세요.' }
         : waitingMessage,
     ]);
-  }, [session?.id, result?.attempt]);
+  }, [session?.id, result?.id]);
 
   useEffect(() => {
     if (!isOpen || !result?.id) return;

@@ -11,14 +11,17 @@ from typing import override
 
 from shared.protocol import (
     AnalysisAgentProtocol,
+    RecommendAgentProtocol,
     RubricAgentProtocol,
     TutorChatAgentProtocol,
 )
 from shared.schema.analysis import AnalysisRequest, AnalysisResult
+from shared.schema.recommend import RecommendRequest, RecommendResult
 from shared.schema.rubric import Rubric, RubricGenerationRequest, RubricList
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
 
 from agent.graphs.grading import grading_app
+from agent.graphs.recommend import run_recommend
 from agent.graphs.rubric import rubric_app
 from agent.graphs.tutor import tutor_chat_app
 from agent.schemas.grading import AnalysisOutput, GradingState
@@ -89,4 +92,12 @@ class TutorChatAgent(TutorChatAgentProtocol):
         )
 
 
-__all__ = ["AnalysisAgent", "RubricAgent", "TutorChatAgent"]
+class RecommendAgent(RecommendAgentProtocol):
+    """키워드 기반 문제 추천(하이브리드 RAG)의 백엔드 어댑터."""
+
+    @override
+    async def run(self, input: RecommendRequest) -> RecommendResult:
+        return await run_recommend(input)
+
+
+__all__ = ["AnalysisAgent", "RecommendAgent", "RubricAgent", "TutorChatAgent"]

@@ -2,11 +2,12 @@ import base64
 from typing import Annotated
 from uuid import UUID
 
-from agent import AnalysisAgent, RubricAgent, TutorChatAgent
+from agent import AnalysisAgent, RecommendAgent, RubricAgent, TutorChatAgent
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from shared.protocol import (
     AnalysisAgentProtocol,
+    RecommendAgentProtocol,
     RubricAgentProtocol,
     TutorChatAgentProtocol,
 )
@@ -60,8 +61,14 @@ def get_tutor_chat_agent() -> TutorChatAgentProtocol:
     return TutorChatAgent()
 
 
+def get_recommend_agent() -> RecommendAgentProtocol:
+    return RecommendAgent()
+
+
 RubricAgentDep = Annotated[RubricAgentProtocol, Depends(get_rubric_agent)]
 
 AnalysisAgentDep = Annotated[AnalysisAgentProtocol, Depends(get_analysis_agent)]
 
 TutorChatAgentDep = Annotated[TutorChatAgentProtocol, Depends(get_tutor_chat_agent)]
+
+RecommendAgentDep = Annotated[RecommendAgentProtocol, Depends(get_recommend_agent)]

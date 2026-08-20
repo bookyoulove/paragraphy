@@ -11,6 +11,8 @@ from backend.depends import (
     AnalysisAgentDep,
     AnalysisResultDBDep,
     AnalysisSessionDBDep,
+    ChatMessageDBDep,
+    ChatSessionDBDep,
     UserAnswerDBDep,
     UserUUIDDep,
 )
@@ -30,10 +32,12 @@ from backend.schema.analysis_session.response import (
 )
 from backend.schema.user_answer.input import (
     InsertUserAnswerRequest,
+    RenameUserAnswerRequest,
     UpdateUserAnswerRequest,
     UserAnswerCreate,
     UserAnswerUpdate,
 )
+from backend.services.deletion import delete_answer_cascade, delete_session_cascade
 
 router = APIRouter(
     prefix="/sessions",
@@ -72,6 +76,9 @@ def create_session(
     request: AnalysisSessionRequest,
     analysis_session_db: AnalysisSessionDBDep,
 ):
+    existing = analysis_session_db.get_by_user_and_problem(user_id, request.problem_id)
+    if existing:
+        return existing
     return analysis_session_db.create(
         AnalysisSessionCreate(user_id=user_id, problem_id=request.problem_id)
     )
@@ -79,9 +86,15 @@ def create_session(
 
 class UpsertResult(BaseModel):
     answer_id: UUID
+    name: str | None = None
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(tz=ZoneInfo("Asia/Seoul"))
     )
+
+
+class RenameResult(BaseModel):
+    answer_id: UUID
+    name: str
 
 
 @router.put("/{session_id}/answers/{answer_id}")
@@ -99,11 +112,13 @@ def update_session_answer(
             detail="Answer not found.",
         )
 
-    user_answer_db.update(
-        answer_id, UserAnswerUpdate(user_answer=req.user_answer, status=req.status)
-    )
+    update_fields = {"user_answer": req.user_answer, "status": req.status}
+    if req.name and req.name.strip():
+        update_fields["name"] = req.name.strip()
+    updated = user_answer_db.update(answer_id, UserAnswerUpdate(**update_fields))
+    assert updated is not None
 
-    return UpsertResult(answer_id=answer_id)
+    return UpsertResult(answer_id=answer_id, name=updated.name, created_at=updated.created_at)
 
 
 @router.post("/{session_id}/answers")
@@ -113,14 +128,73 @@ def insert_session_answer(
     user_answer_db: UserAnswerDBDep,
     session: ValidSessionDep,
 ) -> UpsertResult:
+    round_no = len(session.user_answers) + 1
+    name = req.name.strip() if req.name and req.name.strip() else f"{round_no}회차"
     new_answer = user_answer_db.create(
         UserAnswerCreate(
             session_id=session_id,
             user_answer=req.user_answer,
             status=req.status,
+            name=name,
         )
     )
-    return UpsertResult(answer_id=new_answer.id)
+    return UpsertResult(
+        answer_id=new_answer.id, name=new_answer.name, created_at=new_answer.created_at
+    )
+
+
+@router.patch("/{session_id}/answers/{answer_id}/name")
+def rename_session_answer(
+    session_id: UUID,
+    answer_id: UUID,
+    req: RenameUserAnswerRequest,
+    user_answer_db: UserAnswerDBDep,
+    session: ValidSessionDep,
+) -> RenameResult:
+    answer = user_answer_db.get(answer_id)
+    if not answer or answer.session_id != session_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Answer not found.",
+        )
+
+    updated = user_answer_db.update(answer_id, UserAnswerUpdate(name=req.name))
+    assert updated is not None
+    return RenameResult(answer_id=answer_id, name=updated.name)
+
+
+@router.delete("/{session_id}/answers/{answer_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session_answer(
+    session_id: UUID,
+    answer_id: UUID,
+    user_answer_db: UserAnswerDBDep,
+    analysis_result_db: AnalysisResultDBDep,
+    chat_session_db: ChatSessionDBDep,
+    chat_message_db: ChatMessageDBDep,
+    session: ValidSessionDep,
+):
+    answer = user_answer_db.get(answer_id)
+    if not answer or answer.session_id != session_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Answer not found.",
+        )
+
+    delete_answer_cascade(answer, analysis_result_db, chat_session_db, chat_message_db, user_answer_db)
+
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_session(
+    session_id: UUID,
+    user_answer_db: UserAnswerDBDep,
+    analysis_result_db: AnalysisResultDBDep,
+    chat_session_db: ChatSessionDBDep,
+    chat_message_db: ChatMessageDBDep,
+    analysis_session_db: AnalysisSessionDBDep,
+    session: ValidSessionDep,
+):
+    delete_session_cascade(session, analysis_result_db, chat_session_db, chat_message_db, user_answer_db)
+    analysis_session_db.delete(session_id)
 
 
 @router.get("/{session_id}/answers/{answer_id}/grading")
@@ -159,7 +233,7 @@ async def analysis_answer(
     return res_db
 
 
-@router.get("/", response_model=list[AnalysisSessionPublicWithProblem])
+@router.get("/", response_model=list[AnalysisSessionPublicWithProblemAnswer])
 def get_session_list(user_id: UserUUIDDep, session_db: AnalysisSessionDBDep):
     return session_db.get_by_user(user_id)
 

@@ -4,14 +4,20 @@ import RubricModal from './RubricModal';
 
 export default function Workbench({ problem, session, onSave, onGrade, readOnly = false }) {
   const [answer, setAnswer] = useState(session?.answer || '');
+  const [name, setName] = useState(session?.answerName || '');
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
   const result = session?.results.at(-1);
+  const pendingNewRound = !session?.answerId || session.answerSubmitted;
   useEffect(() => {
     setAnswer(session?.answer ?? '');
+    setName(session?.answerName ?? '');
     setSaved('');
-  }, [session?.id]);
+  }, [session?.id, session?.answerId]);
+  useEffect(() => {
+    if (session?.answerSubmitted) setName('');
+  }, [session?.answerSubmitted]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -23,17 +29,17 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
     );
   const save = async () => {
     try {
-      await onSave(answer);
-      setSaved('답안이 저장되었습니다.');
+      await onSave(answer, name);
+      setSaved('임시 저장되었습니다.');
       setTimeout(() => setSaved(''), 2200);
     } catch (err) {
-      setSaved(err.message || '답안 저장에 실패했습니다.');
+      setSaved(err.message || '임시 저장에 실패했습니다.');
     }
   };
   const grade = async () => {
     setGrading(true);
     try {
-      const savedSession = await onSave(answer);
+      const savedSession = await onSave(answer, name);
       await onGrade(savedSession);
     } catch (err) {
       setSaved(err.message || '채점 요청에 실패했습니다.');
@@ -45,6 +51,16 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
     <section className="answer-box">
       <div className="answer-header">
         <div className="answer-title">{readOnly ? '답안 보기' : '답안 작성'}</div>
+        {!readOnly && (
+          <input
+            className="answer-name-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={50}
+            placeholder={pendingNewRound ? '답안 이름 (비워두면 자동으로 N회차)' : '답안 이름'}
+            aria-label="답안 이름"
+          />
+        )}
         <div className="word-counter">{answer.trim().length}자</div>
       </div>
       <div className="highlight-wrap">
@@ -61,7 +77,7 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
         <div className="answer-actions">
           <span className="save-status">{saved}</span>
           <button className="primary-btn" onClick={save}>
-            답안 저장
+            임시 저장
           </button>
           <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
             {grading ? '채점 중...' : '채점 요청'}
@@ -90,7 +106,11 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
       <div className="work-columns">
         <section className="column-slot">{result ? editor : detail}</section>
         <section className="column-slot">
-          {result ? <ResultPanel result={result} results={session.results} /> : editor}
+          {result ? (
+            <ResultPanel sessionId={session.id} result={result} results={session.results} />
+          ) : (
+            editor
+          )}
         </section>
       </div>
       {showRubric && (
