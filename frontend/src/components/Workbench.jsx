@@ -14,6 +14,7 @@ export default function Workbench({
   session,
   onSave,
   onGrade,
+  onNewAnswerStateChange,
   readOnly = false,
   startNew = false,
 }) {
@@ -34,6 +35,9 @@ export default function Workbench({
     setSaved('');
     setMode(initialMode(session, readOnly, startNew));
   }, [session?.id, readOnly, startNew]);
+  useEffect(() => {
+    onNewAnswerStateChange?.(mode === 'new');
+  }, [mode, onNewAnswerStateChange]);
   if (!problem)
     return (
       <div className="empty-state">
