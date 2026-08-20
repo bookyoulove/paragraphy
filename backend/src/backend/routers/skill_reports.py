@@ -15,7 +15,12 @@ from backend.depends import (
     UserSkillReportDBDep,
     UserUUIDDep,
 )
-from backend.orm.models import AnalysisResults, AnalysisSessions, UserAnswers
+from backend.orm.models import (
+    AnalysisResults,
+    AnalysisSessions,
+    UserAnswers,
+    UserSkillReports,
+)
 from backend.schema.skill_report import UserSkillReportCreate, UserSkillReportPublic
 from backend.schema.coach_message import (
     CoachMessageCreate,
@@ -26,6 +31,34 @@ from backend.services.email import render_weekly_report_html, send_weekly_report
 from shared.schema.skill_report import GradedAnswerReview, WeeklySkillReportRequest
 
 router = APIRouter(prefix="/skill-reports", tags=["skill-reports"])
+
+
+@router.get("/", response_model=list[UserSkillReportPublic])
+def get_skill_report_list(
+    user_id: UserUUIDDep,
+    report_db: UserSkillReportDBDep,
+) -> list[UserSkillReportPublic]:
+    statement = (
+        select(UserSkillReports)
+        .where(UserSkillReports.user_id == user_id)
+        .order_by(UserSkillReports.period_end.desc())
+    )
+    reports = report_db.session.exec(statement).all()
+    return [UserSkillReportPublic.model_validate(report) for report in reports]
+
+
+@router.get("/{report_id}", response_model=UserSkillReportPublic)
+def get_skill_report(
+    report_id: UUID,
+    user_id: UserUUIDDep,
+    report_db: UserSkillReportDBDep,
+) -> UserSkillReportPublic:
+    report = report_db.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+    if report.user_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다.")
+    return UserSkillReportPublic.model_validate(report)
 
 
 def _recent_reviews(

@@ -4,6 +4,7 @@ const items = [
   ['/problems', '문제 선택'],
   ['/history', '답안 기록'],
   ['/compare', '채점 비교'],
+  ['/weekly-reports', '주간 분석'],
 ];
 export default function Sidebar() {
   return (

@@ -14,6 +14,8 @@ import HistoryPage from './pages/HistoryPage';
 import LandingPage from './pages/LandingPage';
 import ProblemsPage from './pages/ProblemsPage';
 import SessionPage from './pages/SessionPage';
+import WeeklyReportDetailPage from './pages/WeeklyReportDetailPage';
+import WeeklyReportsPage from './pages/WeeklyReportsPage';
 
 function AppLayout({ user, setUser, data, actions, error, clearError }) {
   const navigate = useNavigate();
@@ -57,6 +59,8 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
               <Route path="/history/:sessionId/answers/:answerId" element={<AnswerDetailPage user={user} session={data.session} onLoad={actions.loadSession} />} />
               <Route path="/compare" element={<ComparePage sessions={data.sessions} />} />
               <Route path="/compare/:sessionId" element={<ComparisonPage user={user} session={data.session} onLoad={actions.loadSession} />} />
+              <Route path="/weekly-reports" element={<WeeklyReportsPage user={user} />} />
+              <Route path="/weekly-reports/:reportId" element={<WeeklyReportDetailPage user={user} />} />
               <Route path="*" element={<Navigate to="/problems" replace />} />
             </Routes>
           </main>

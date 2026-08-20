@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from backend.orm.models import UserSkillReportBase
@@ -12,3 +13,4 @@ class UserSkillReportCreate(UserSkillReportBase):
 class UserSkillReportPublic(UserSkillReportBase):
     id: UUID
     skill_scores: list[SkillAssessment]
+    created_at: datetime
