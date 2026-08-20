@@ -1,3 +1,13 @@
+function formatCreatedAt(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
 export default function HistoryView({ sessions, compareOnly, onResume }) {
   const list = compareOnly ? sessions.filter((session) => session.results.length >= 2) : sessions;
   const message = compareOnly
@@ -19,6 +29,12 @@ export default function HistoryView({ sessions, compareOnly, onResume }) {
         {list.length ? (
           list.map((session) => {
             const result = session.results.at(-1);
+            const resultCount = session.results.length;
+            const status = result
+              ? resultCount > 1
+                ? `${resultCount}회 채점 완료`
+                : '채점 완료'
+              : '미채점';
             return (
               <button className="history-card" key={session.id} onClick={() => onResume(session)}>
                 <div className="history-card-main">
@@ -27,9 +43,12 @@ export default function HistoryView({ sessions, compareOnly, onResume }) {
                     {session.problem.source} · 샘플 세션 #{session.id}
                   </div>
                 </div>
-                <span className={`history-card-score ${result ? '' : 'pending'}`}>
-                  {result ? `${result.score} / ${result.totalMax}` : '미채점'}
-                </span>
+                <div className="history-card-result">
+                  <span className={`history-card-score ${result ? '' : 'pending'}`}>{status}</span>
+                  {result?.createdAt && (
+                    <span className="history-card-time">{formatCreatedAt(result.createdAt)}</span>
+                  )}
+                </div>
               </button>
             );
           })
