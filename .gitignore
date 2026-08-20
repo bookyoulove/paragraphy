@@ -61,17 +61,6 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Paragraphy backend (SQLite 프로토타입 DB, Chroma 벡터DB 저장소)
-backend/*.db
-backend/*.db-journal
-backend/chroma_data/
-backend/logs/
-
-# Paragraphy frontend
-frontend/node_modules/
-frontend/dist/
-frontend/screenshots/
-
 # Flask stuff:
 instance/
 .webassets-cache
@@ -158,6 +147,9 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
+# Runtime data
+agent/chroma_data/
+
 # Environments
 .env
 .envrc
@@ -206,9 +198,9 @@ cython_debug/
 .abstra/
 
 # Visual Studio Code
-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
+#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore
 #   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#   and can be added to the global gitignore or merged into this file. However, if you prefer, 
+#   and can be added to the global gitignore or merged into this file. However, if you prefer,
 #   you could uncomment the following to ignore the entire vscode folder
 # .vscode/
 # Temporary file for partial code execution
@@ -227,3 +219,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# custom database
+db/
