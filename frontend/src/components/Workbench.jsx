@@ -2,16 +2,26 @@ import { useEffect, useState } from 'react';
 import ResultPanel from './ResultPanel';
 import RubricModal from './RubricModal';
 
+const initialMode = (session, readOnly) =>
+  readOnly || session?.answerSubmitted ? 'view' : 'edit';
+
 export default function Workbench({ problem, session, onSave, onGrade, readOnly = false }) {
   const [answer, setAnswer] = useState(session?.answer || '');
+  const [name, setName] = useState(session?.answerName || '');
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
-  const result = session?.results.at(-1);
+  const [mode, setMode] = useState(() => initialMode(session, readOnly));
+  const latestResult = session?.results.at(-1);
+  const result = mode === 'new' ? null : latestResult;
+  const editable = mode !== 'view';
+  const pendingNewRound = mode === 'new';
   useEffect(() => {
     setAnswer(session?.answer ?? '');
+    setName(session?.answerName ?? '');
     setSaved('');
-  }, [session?.id]);
+    setMode(initialMode(session, readOnly));
+  }, [session?.id, session?.answerId, readOnly]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -23,18 +33,20 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
     );
   const save = async () => {
     try {
-      await onSave(answer);
-      setSaved('답안이 저장되었습니다.');
+      await onSave(answer, { createNew: pendingNewRound, name });
+      setMode('edit');
+      setSaved('임시 저장되었습니다.');
       setTimeout(() => setSaved(''), 2200);
     } catch (err) {
-      setSaved(err.message || '답안 저장에 실패했습니다.');
+      setSaved(err.message || '임시 저장에 실패했습니다.');
     }
   };
   const grade = async () => {
     setGrading(true);
     try {
-      const savedSession = await onSave(answer);
+      const savedSession = await onSave(answer, { createNew: pendingNewRound, name });
       await onGrade(savedSession);
+      setMode('view');
     } catch (err) {
       setSaved(err.message || '채점 요청에 실패했습니다.');
     } finally {
@@ -44,7 +56,17 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
   const editor = (
     <section className="answer-box">
       <div className="answer-header">
-        <div className="answer-title">{readOnly ? '답안 보기' : '답안 작성'}</div>
+        <div className="answer-title">{editable ? '답안 작성' : '답안 보기'}</div>
+        {editable && (
+          <input
+            className="answer-name-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={50}
+            placeholder={pendingNewRound ? '답안 이름 (비워두면 자동으로 N회차)' : '답안 이름'}
+            aria-label="답안 이름"
+          />
+        )}
         <div className="word-counter">{answer.trim().length}자</div>
       </div>
       <div className="highlight-wrap">
@@ -53,18 +75,36 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="여기에 답안을 작성하세요."
-          readOnly={readOnly}
+          readOnly={!editable}
           spellCheck="false"
         />
       </div>
-      {!readOnly && (
+      {editable ? (
         <div className="answer-actions">
           <span className="save-status">{saved}</span>
           <button className="primary-btn" onClick={save}>
-            답안 저장
+            임시 저장
           </button>
           <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
             {grading ? '채점 중...' : '채점 요청'}
+          </button>
+        </div>
+      ) : (
+        <div className="answer-actions">
+          <span className="save-status" />
+          <button
+            className="primary-btn"
+            onClick={() => {
+              setAnswer('');
+              setName('');
+              setSaved('');
+              setMode('new');
+            }}
+          >
+            새로 풀기
+          </button>
+          <button className="primary-btn" onClick={() => setMode('edit')}>
+            수정하기
           </button>
         </div>
       )}
@@ -90,7 +130,11 @@ export default function Workbench({ problem, session, onSave, onGrade, readOnly 
       <div className="work-columns">
         <section className="column-slot">{result ? editor : detail}</section>
         <section className="column-slot">
-          {result ? <ResultPanel result={result} results={session.results} /> : editor}
+          {result ? (
+            <ResultPanel sessionId={session.id} result={result} results={session.results} />
+          ) : (
+            editor
+          )}
         </section>
       </div>
       {showRubric && (

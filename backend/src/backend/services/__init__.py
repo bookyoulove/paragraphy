@@ -1,1 +1,1 @@
-"""Application services with external side effects."""
+"""Shared service-layer helpers used across routers."""

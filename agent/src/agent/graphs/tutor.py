@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
 from agent.model import get_chat_model
+from agent.retry import call_with_retry
 from agent.schemas.tutor import TutorChatState
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ SYSTEM_PROMPT_TEMPLATE = """너는 대입 논술 답안 채점/첨삭 결과에 
 직접 말하듯 자연스러운 한국어 존댓말로 간결하게 답하라."""
 
 
-def chat_responder_node(state: TutorChatState) -> dict[str, Any]:
+def chat_responder_node(state: TutorChatState) -> dict[str, object]:
     messages = [
         SystemMessage(
             content=SYSTEM_PROMPT_TEMPLATE.format(
@@ -38,7 +38,13 @@ def chat_responder_node(state: TutorChatState) -> dict[str, Any]:
         ],
     ]
     try:
-        response = get_chat_model().invoke(messages)
+        model = get_chat_model()
+        response = call_with_retry(
+            lambda: model.invoke(messages),
+            operation_name="Tutor model",
+            max_attempts=2,
+            max_wait=5,
+        )
         return {"reply": str(response.content), "error": None}
     except Exception as exc:
         logger.exception("Tutor model invocation failed")

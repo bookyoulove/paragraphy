@@ -25,6 +25,8 @@ from shared.schema.grammar import (
     RevisionCategory,
 )
 
+from agent.retry import call_with_retry
+
 
 @dataclass(frozen=True, slots=True)
 class Correction:
@@ -74,22 +76,31 @@ def _get_corrector() -> Any:
     )
 
 
+# bareun.ai가 붙이는 신뢰도 점수 기준. 점수가 낮은 후보는 "되으로써"처럼 문법적으로
+# 성립하지 않는 추천을 포함하는 경우가 관찰되어 걸러낸다. 다만 SPACING(띄어쓰기)은
+# 점수가 낮게 나와도 규칙 기반이라 신뢰도가 높으므로 예외로 둔다.
+MIN_REVISION_SCORE = 0.5
+
+
 def _convert_block(block: Any) -> RevisedBlock:
     # Corrector의 Python 응답은 origin을 str로 노출한다. 저수준 protobuf 응답처럼
     # TextSpan으로 노출되는 버전도 받아 shared 계약의 문자열로 정규화한다.
     origin = block.origin if isinstance(block.origin, str) else block.origin.content
+    revisions = [
+        Revision(
+            revised=item.revised,
+            score=item.score,
+            category=RevisionCategory(item.category),
+            help_id=item.help_id,
+        )
+        for item in block.revisions
+        if item.score >= MIN_REVISION_SCORE
+        or RevisionCategory(item.category) is RevisionCategory.SPACING
+    ]
     return RevisedBlock(
         origin=origin,
-        revised=block.revised,
-        revisions=[
-            Revision(
-                revised=item.revised,
-                score=item.score,
-                category=RevisionCategory(item.category),
-                help_id=item.help_id,
-            )
-            for item in block.revisions
-        ],
+        revised=block.revised if revisions else origin,
+        revisions=revisions,
         nested=[_convert_block(item) for item in block.nested],
         lemma=block.lemma,
         pos=CustomDictPos(block.pos),
@@ -138,7 +149,12 @@ def check_spelling(text: str) -> GrammarResult:
         return _empty_result(text)
 
     try:
-        response = _get_corrector().correct_error(content=text)
+        corrector = _get_corrector()
+        response = call_with_retry(
+            lambda: corrector.correct_error(content=text),
+            operation_name="Bareun spelling API",
+            max_wait=8,
+        )
         return _convert_response(response)
     except SpellingIntegrationError:
         raise

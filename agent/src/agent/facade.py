@@ -11,23 +11,26 @@ from typing import override
 
 from shared.protocol import (
     AnalysisAgentProtocol,
+    RecommendAgentProtocol,
     RubricAgentProtocol,
     SkillReportAgentProtocol,
     TutorChatAgentProtocol,
 )
 from shared.schema.analysis import AnalysisRequest, AnalysisResult
+from shared.schema.recommend import RecommendRequest, RecommendResult
 from shared.schema.rubric import Rubric, RubricGenerationRequest, RubricList
-from shared.schema.tutor import TutorChatInput, TutorChatOutput
 from shared.schema.skill_report import WeeklySkillReportOutput, WeeklySkillReportRequest
+from shared.schema.tutor import TutorChatInput, TutorChatOutput
 
 from agent.graphs.grading import grading_app
+from agent.graphs.recommend import run_recommend
 from agent.graphs.rubric import rubric_app
-from agent.graphs.tutor import tutor_chat_app
 from agent.graphs.skill_report import skill_report_app
+from agent.graphs.tutor import tutor_chat_app
 from agent.schemas.grading import AnalysisOutput, GradingState
 from agent.schemas.rubric import RubricGenerationOutput, RubricState
-from agent.schemas.tutor import TutorChatState
 from agent.schemas.skill_report import SkillReportState
+from agent.schemas.tutor import TutorChatState
 
 
 def _to_backend_rubric_list(output: RubricGenerationOutput) -> RubricList:
@@ -93,6 +96,14 @@ class TutorChatAgent(TutorChatAgentProtocol):
         )
 
 
+class RecommendAgent(RecommendAgentProtocol):
+    """키워드 기반 문제 추천(하이브리드 RAG)의 백엔드 어댑터."""
+
+    @override
+    async def run(self, input: RecommendRequest) -> RecommendResult:
+        return await run_recommend(input)
+
+
 class SkillReportAgent(SkillReportAgentProtocol):
     """Persisted grading evidence를 주간 역량 리포트로 변환하는 어댑터."""
 
@@ -105,4 +116,10 @@ class SkillReportAgent(SkillReportAgentProtocol):
         return result.report
 
 
-__all__ = ["AnalysisAgent", "RubricAgent", "SkillReportAgent", "TutorChatAgent"]
+__all__ = [
+    "AnalysisAgent",
+    "RecommendAgent",
+    "RubricAgent",
+    "SkillReportAgent",
+    "TutorChatAgent",
+]

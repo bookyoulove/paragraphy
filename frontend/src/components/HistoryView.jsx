@@ -1,8 +1,24 @@
-export default function HistoryView({ sessions, compareOnly, onResume }) {
+import { useState } from 'react';
+import { formatCreatedAt } from '../utils/formatters';
+
+export default function HistoryView({ sessions, compareOnly, onResume, onDelete }) {
+  const [deletingId, setDeletingId] = useState(null);
   const list = compareOnly ? sessions.filter((session) => session.results.length >= 2) : sessions;
   const message = compareOnly
     ? '아직 2회 이상 채점된 문제가 없습니다.'
     : '아직 작성한 답안이 없습니다. 문제를 선택해 답안을 작성해보세요.';
+
+  const removeSession = async (event, sessionId) => {
+    event.stopPropagation();
+    if (!window.confirm('이 문제의 답안을 모두 삭제할까요? 채점 결과와 대화 기록도 함께 삭제됩니다.')) return;
+    setDeletingId(sessionId);
+    try {
+      await onDelete(sessionId);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <div className="picker-view">
       <div className="picker-view-header">
@@ -19,18 +35,36 @@ export default function HistoryView({ sessions, compareOnly, onResume }) {
         {list.length ? (
           list.map((session) => {
             const result = session.results.at(-1);
+            const resultCount = session.results.length;
+            const status = result
+              ? resultCount > 1
+                ? `${resultCount}회 채점 완료`
+                : '채점 완료'
+              : '미채점';
             return (
-              <button className="history-card" key={session.id} onClick={() => onResume(session)}>
-                <div className="history-card-main">
+              <div className="history-card round-card" key={session.id}>
+                <button className="history-card-main round-card-main" onClick={() => onResume(session)}>
                   <div className="history-card-title">{session.problem.title}</div>
                   <div className="history-card-meta">
-                    {session.problem.source} · 샘플 세션 #{session.id}
+                    {session.problem.source} · 답안 {session.answers.length}개
                   </div>
+                </button>
+                <div className="history-card-result">
+                  <span className={`history-card-score ${result ? '' : 'pending'}`}>{status}</span>
+                  {result?.createdAt && (
+                    <span className="history-card-time">{formatCreatedAt(result.createdAt)}</span>
+                  )}
                 </div>
-                <span className={`history-card-score ${result ? '' : 'pending'}`}>
-                  {result ? `${result.score} / ${result.totalMax}` : '미채점'}
-                </span>
-              </button>
+                {onDelete && (
+                  <button
+                    className="ghost-btn round-delete-btn"
+                    disabled={deletingId === session.id}
+                    onClick={(event) => removeSession(event, session.id)}
+                  >
+                    {deletingId === session.id ? '삭제 중...' : '답안 삭제'}
+                  </button>
+                )}
+              </div>
             );
           })
         ) : (
