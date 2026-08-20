@@ -1192,6 +1192,11 @@ textarea {
   color: var(--muted);
   line-height: 1.5;
 }
+.score-created-at {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
 
 .criteria-list {
   display: flex;

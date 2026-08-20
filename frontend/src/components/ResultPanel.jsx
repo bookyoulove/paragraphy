@@ -1,5 +1,15 @@
 import { useState } from 'react';
 
+function formatCreatedAt(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('ko-KR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
 export default function ResultPanel({ result, results }) {
   const [tab, setTab] = useState('grade');
   const pct = result ? Math.round((result.score / result.totalMax) * 100) : 0;
@@ -37,6 +47,11 @@ export default function ResultPanel({ result, results }) {
                 <div className="score-text">
                   <div className="score-title">항목별 채점 결과</div>
                   <div className="score-sub">각 평가 항목의 근거와 개선 방향을 확인해 보세요.</div>
+                  {result.createdAt && (
+                    <div className="score-created-at">
+                      채점 요청 시각 · {formatCreatedAt(result.createdAt)}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="criteria-list">
