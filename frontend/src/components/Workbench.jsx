@@ -14,26 +14,36 @@ export default function Workbench({
   session,
   onSave,
   onGrade,
+  onNewAnswerStateChange,
+  answerOverride = null,
+  resultOverride,
+  onNewAnswer,
+  onEditAnswer,
   readOnly = false,
   startNew = false,
 }) {
   const navigate = useNavigate();
-  const [answer, setAnswer] = useState(startNew ? '' : session?.answer || '');
-  const [name, setName] = useState(startNew ? '' : session?.answerName || '');
+  const answerValue = answerOverride?.userAnswer ?? session?.answer ?? '';
+  const answerName = answerOverride?.name ?? session?.answerName ?? '';
+  const [answer, setAnswer] = useState(startNew ? '' : answerValue);
+  const [name, setName] = useState(startNew ? '' : answerName);
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
   const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
-  const latestResult = session?.results.at(-1);
+  const latestResult = resultOverride === undefined ? session?.results.at(-1) : resultOverride;
   const result = mode === 'new' ? null : latestResult;
   const editable = mode !== 'view';
   const pendingNewRound = mode === 'new';
   useEffect(() => {
-    setAnswer(startNew ? '' : (session?.answer ?? ''));
-    setName(startNew ? '' : (session?.answerName ?? ''));
+    setAnswer(startNew ? '' : answerValue);
+    setName(startNew ? '' : answerName);
     setSaved('');
     setMode(initialMode(session, readOnly, startNew));
-  }, [session?.id, readOnly, startNew]);
+  }, [session?.id, answerOverride?.id, readOnly, startNew, answerValue, answerName]);
+  useEffect(() => {
+    onNewAnswerStateChange?.(mode === 'new');
+  }, [mode, onNewAnswerStateChange]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -43,6 +53,23 @@ export default function Workbench({
         </div>
       </div>
     );
+  const startNewAnswer = () => {
+    if (onNewAnswer) {
+      onNewAnswer();
+      return;
+    }
+    setAnswer('');
+    setName('');
+    setSaved('');
+    setMode('new');
+  };
+  const editAnswer = () => {
+    if (onEditAnswer) {
+      onEditAnswer();
+      return;
+    }
+    setMode('edit');
+  };
   const save = async () => {
     try {
       await onSave(answer, { createNew: pendingNewRound, name });
@@ -119,19 +146,10 @@ export default function Workbench({
       ) : (
         <div className="answer-actions">
           <span className="save-status" />
-
-          <button
-            className="primary-btn"
-            onClick={() => {
-              setAnswer('');
-              setName('');
-              setSaved('');
-              setMode('new');
-            }}
-          >
+          <button className="primary-btn" onClick={startNewAnswer}>
             새로 풀기
           </button>
-          <button className="primary-btn" onClick={() => setMode('edit')}>
+          <button className="primary-btn" onClick={editAnswer}>
             수정하기
           </button>
         </div>
@@ -156,9 +174,9 @@ export default function Workbench({
   return (
     <>
       <div className="work-columns">
-        <section className="column-slot">{result ? editor : detail}</section>
+        <section className="column-slot">{result || readOnly ? editor : detail}</section>
         <section className="column-slot">
-          {result ? (
+          {result || readOnly ? (
             <ResultPanel sessionId={session.id} result={result} results={session.results} />
           ) : (
             editor

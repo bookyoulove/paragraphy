@@ -2,7 +2,15 @@ import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import Workbench from '../components/Workbench';
 
-export default function SessionPage({ user, session, onLoad, onSave, onGrade, onRename }) {
+export default function SessionPage({
+  user,
+  session,
+  onLoad,
+  onSave,
+  onGrade,
+  onRename,
+  onNewAnswerStateChange,
+}) {
   const { sessionId } = useParams();
   const location = useLocation();
   const startNew = location.state?.startNew === true;
@@ -18,6 +26,7 @@ export default function SessionPage({ user, session, onLoad, onSave, onGrade, on
       onSave={onSave}
       onGrade={onGrade}
       onRename={onRename}
+      onNewAnswerStateChange={onNewAnswerStateChange}
       startNew={startNew}
     />
   );

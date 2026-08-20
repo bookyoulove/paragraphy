@@ -17,6 +17,7 @@ import SessionPage from './pages/SessionPage';
 
 function AppLayout({ user, setUser, data, actions, error, clearError }) {
   const navigate = useNavigate();
+  const [isWritingNewAnswer, setIsWritingNewAnswer] = useState(false);
   const isSessionPage = useMatch('/sessions/:sessionId');
   const isProblemsPage = useMatch('/problems');
   const logout = () => {
@@ -94,6 +95,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
                     onSave={actions.saveAnswer}
                     onGrade={actions.grade}
                     onRename={actions.renameAnswer}
+                    onNewAnswerStateChange={setIsWritingNewAnswer}
                   />
                 }
               />
@@ -134,9 +136,13 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
           </main>
         </div>
       </div>
-      {user && isSessionPage && data.session?.results.length > 0 && (
-        <TutorChatModal session={data.session} onChat={api.chat} onLoadHistory={api.getChat} />
-      )}
+      {user &&
+        isSessionPage &&
+        !isWritingNewAnswer &&
+        data.session?.answerSubmitted &&
+        data.session?.results.length > 0 && (
+          <TutorChatModal session={data.session} onChat={api.chat} onLoadHistory={api.getChat} />
+        )}
       {!user && <LoginModal onLogin={actions.login} />}
     </>
   );
