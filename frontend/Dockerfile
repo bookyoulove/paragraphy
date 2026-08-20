@@ -3,8 +3,8 @@ FROM node:20-alpine AS base
 WORKDIR /app
 
 # Install dependencies (cached)
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # 2. Development stage (Vite dev server with HMR)
 FROM base AS development
