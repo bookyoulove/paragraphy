@@ -22,7 +22,7 @@ export default function ComparisonPage({ user, session, onLoad }) {
       {session.results.length > 1 ? (
         <CompareTable
           results={session.results}
-          onSelectRound={(answerId) => navigate(`/history/${sessionId}/answers/${answerId}`)}
+          onSelectRound={(answerId) => navigate(`/sessions/${sessionId}/answers/${answerId}`)}
         />
       ) : (
         <div className="panel-empty">아직 2회 이상 채점된 답안이 없습니다.</div>

@@ -10,6 +10,12 @@ const initialMode = (session, readOnly, startNew) => {
   return session?.answerSubmitted ? 'view' : 'edit';
 };
 
+const formatElapsedTime = (seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
 export default function Workbench({
   problem,
   session,
@@ -31,6 +37,7 @@ export default function Workbench({
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
+  const [gradingElapsedSeconds, setGradingElapsedSeconds] = useState(0);
   const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
   const [proofFocusId, setProofFocusId] = useState(0);
@@ -59,6 +66,17 @@ export default function Workbench({
   useEffect(() => {
     onNewAnswerStateChange?.(mode === 'new');
   }, [mode, onNewAnswerStateChange]);
+  useEffect(() => {
+    if (!grading) return undefined;
+
+    const startedAt = Date.now();
+    setGradingElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      setGradingElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [grading]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -131,6 +149,7 @@ export default function Workbench({
             className="answer-name-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            disabled={grading}
             maxLength={50}
             placeholder={pendingNewRound ? '답안 이름 (비워두면 자동으로 N회차)' : '답안 이름'}
             aria-label="답안 이름"
@@ -156,13 +175,14 @@ export default function Workbench({
             onChange={(e) => setAnswer(e.target.value)}
             placeholder="여기에 답안을 작성하세요."
             spellCheck="false"
+            disabled={grading}
           />
         )}
       </div>
       {editable ? (
         <div className="answer-actions">
           <span className="save-status">{saved}</span>
-          <button className="primary-btn" onClick={save}>
+          <button className="primary-btn" disabled={grading} onClick={save}>
             임시 저장
           </button>
           <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
@@ -197,12 +217,27 @@ export default function Workbench({
       </div>
     </section>
   );
+  const gradingPanel = (
+    <aside className="right-panel" aria-live="polite" aria-busy="true">
+      <div className="tabs">
+        <div className="tab active">채점 결과</div>
+      </div>
+      <div className="panel-loading">
+        <div className="grade-loading-spinner" aria-hidden="true" />
+        <div className="grade-loading-text">답안을 채점하고 있어요</div>
+        <div className="grade-loading-sub">경과 시간 {formatElapsedTime(gradingElapsedSeconds)}</div>
+        <div className="grade-loading-sub">약 1분 정도 소요됩니다. 잠시만 기다려주세요.</div>
+      </div>
+    </aside>
+  );
   return (
     <>
       <div className="work-columns">
-        <section className="column-slot">{result || readOnly ? editor : detail}</section>
+        <section className="column-slot">{result || readOnly || grading ? editor : detail}</section>
         <section className="column-slot">
-          {result || readOnly ? (
+          {grading ? (
+            gradingPanel
+          ) : result || readOnly ? (
             <ResultPanel
               sessionId={session.id}
               result={result}

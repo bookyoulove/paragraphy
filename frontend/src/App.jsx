@@ -6,7 +6,6 @@ import LoginModal from './components/LoginModal';
 import Sidebar from './components/Sidebar';
 import TutorChatModal from './components/TutorChatModal';
 import useAppData from './hooks/useAppData';
-import AnswerDetailPage from './pages/AnswerDetailPage';
 import AnswerListPage from './pages/AnswerListPage';
 import ComparePage from './pages/ComparePage';
 import ComparisonPage from './pages/ComparisonPage';
@@ -20,8 +19,13 @@ import WeeklyReportsPage from './pages/WeeklyReportsPage';
 function AppLayout({ user, setUser, data, actions, error, clearError }) {
   const navigate = useNavigate();
   const [isWritingNewAnswer, setIsWritingNewAnswer] = useState(false);
-  const isSessionPage = useMatch('/sessions/:sessionId');
+  const isSessionPage = useMatch('/sessions/:sessionId/*');
+  const selectedAnswerMatch = useMatch('/sessions/:sessionId/answers/:answerId');
   const isProblemsPage = useMatch('/problems');
+  const selectedAnswer = selectedAnswerMatch
+    ? data.session?.answers.find((item) => String(item.id) === selectedAnswerMatch.params.answerId)
+    : null;
+  const tutorResult = selectedAnswerMatch ? selectedAnswer?.result : data.session?.results.at(-1);
   const logout = () => {
     api.clearToken();
     actions.clear();
@@ -102,6 +106,20 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
                 }
               />
               <Route
+                path="/sessions/:sessionId/answers/:answerId"
+                element={
+                  <SessionPage
+                    user={user}
+                    session={data.session}
+                    onLoad={actions.loadSession}
+                    onSave={actions.saveAnswer}
+                    onGrade={actions.grade}
+                    onRename={actions.renameAnswer}
+                    onNewAnswerStateChange={setIsWritingNewAnswer}
+                  />
+                }
+              />
+              <Route
                 path="/history"
                 element={<HistoryPage sessions={data.sessions} onDelete={actions.deleteSession} />}
               />
@@ -119,10 +137,14 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
               <Route
                 path="/history/:sessionId/answers/:answerId"
                 element={
-                  <AnswerDetailPage
+                  <SessionPage
                     user={user}
                     session={data.session}
                     onLoad={actions.loadSession}
+                    onSave={actions.saveAnswer}
+                    onGrade={actions.grade}
+                    onRename={actions.renameAnswer}
+                    onNewAnswerStateChange={setIsWritingNewAnswer}
                   />
                 }
               />
@@ -148,8 +170,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
       {user &&
         isSessionPage &&
         !isWritingNewAnswer &&
-        data.session?.answerSubmitted &&
-        data.session?.results.length > 0 && <TutorChatModal session={data.session} />}
+        tutorResult && <TutorChatModal session={data.session} result={tutorResult} />}
       {!user && <LoginModal onLogin={actions.login} />}
     </>
   );

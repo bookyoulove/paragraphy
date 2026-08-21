@@ -41,7 +41,7 @@ export default function AnswerListPage({ user, session, onLoad, onDelete }) {
             <div className="history-card round-card" key={item.id}>
               <button
                 className="history-card-main round-card-main"
-                onClick={() => navigate(`/history/${sessionId}/answers/${item.id}`)}
+                onClick={() => navigate(`/sessions/${sessionId}/answers/${item.id}`)}
               >
                 <div className="history-card-title">{item.name}</div>
                 <div className="history-card-meta">{formatWrittenAt(item.createdAt)}</div>
