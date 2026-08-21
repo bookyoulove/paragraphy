@@ -16,10 +16,9 @@ from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
 
+from app.core.config import settings
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
-
-from app.core.config import settings
 
 LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -28,7 +27,9 @@ logger = logging.getLogger("paragraphy.llm_gateway")
 if not logger.handlers:
     logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler(LOG_DIR / "llm_gateway.log", encoding="utf-8")
-    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    )
     logger.addHandler(file_handler)
     logger.propagate = True  # 콘솔(uvicorn 로그)에도 같이 뜨게 둔다
 
@@ -43,7 +44,9 @@ def _get_client() -> OpenAI:
         raise LLMClientError(
             "AI_CLOUD_API_KEY가 설정되지 않았습니다. 프로젝트 루트 .env를 확인하세요."
         )
-    return OpenAI(api_key=settings.ai_cloud_api_key, base_url=settings.ai_cloud_base_url)
+    return OpenAI(
+        api_key=settings.ai_cloud_api_key, base_url=settings.ai_cloud_base_url
+    )
 
 
 def chat_completion(
@@ -73,16 +76,29 @@ def chat_completion(
         LLMClientError: API 키 미설정 또는 호출 실패 시.
     """
     if stream:
-        return "".join(chat_completion_stream(messages, model=model, max_tokens=max_tokens, temperature=temperature))
+        return "".join(
+            chat_completion_stream(
+                messages, model=model, max_tokens=max_tokens, temperature=temperature
+            )
+        )
 
     client = _get_client()
-    kwargs = {"model": model or settings.ai_cloud_model, "messages": messages, "max_tokens": max_tokens}
+    kwargs = {
+        "model": model or settings.ai_cloud_model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+    }
     if temperature is not None:
         kwargs["temperature"] = temperature
     try:
         response = client.chat.completions.create(**kwargs)
     except Exception as exc:  # openai SDK 예외를 서비스 레이어 예외로 통일
-        logger.error("게이트웨이 호출 자체 실패: %s | model=%s max_tokens=%s", exc, kwargs["model"], max_tokens)
+        logger.error(
+            "게이트웨이 호출 자체 실패: %s | model=%s max_tokens=%s",
+            exc,
+            kwargs["model"],
+            max_tokens,
+        )
         raise LLMClientError(f"AI Cloud 게이트웨이 호출 실패: {exc}") from exc
 
     choice = response.choices[0]
@@ -94,7 +110,7 @@ def chat_completion(
         # 응답을 실었을 가능성 등 — 재현 시 원인 파악을 위해 원본 응답을 통째로 남긴다.
         try:
             raw_dump = response.model_dump_json(indent=2)
-        except Exception:
+        except ValueError:
             raw_dump = repr(response)
         logger.error(
             "content=None 응답 수신. finish_reason=%s refusal=%s model=%s max_tokens=%s\n원본 응답:\n%s",
@@ -146,7 +162,10 @@ def chat_completion_stream(
         response_stream = client.chat.completions.create(**kwargs)
     except Exception as exc:
         logger.error(
-            "스트리밍 게이트웨이 호출 자체 실패: %s | model=%s max_tokens=%s", exc, kwargs["model"], max_tokens
+            "스트리밍 게이트웨이 호출 자체 실패: %s | model=%s max_tokens=%s",
+            exc,
+            kwargs["model"],
+            max_tokens,
         )
         raise LLMClientError(f"AI Cloud 게이트웨이 스트리밍 호출 실패: {exc}") from exc
 
@@ -165,7 +184,12 @@ def chat_completion_stream(
     except LLMClientError:
         raise
     except Exception as exc:  # 스트림을 순회하는 도중(네트워크 등) 발생하는 오류
-        logger.error("스트리밍 도중 오류: %s | model=%s max_tokens=%s", exc, kwargs["model"], max_tokens)
+        logger.error(
+            "스트리밍 도중 오류: %s | model=%s max_tokens=%s",
+            exc,
+            kwargs["model"],
+            max_tokens,
+        )
         raise LLMClientError(f"AI Cloud 게이트웨이 스트리밍 중 오류: {exc}") from exc
 
     if not received_any:
@@ -200,6 +224,7 @@ if __name__ == "__main__":
 
     print("\n=== 스트리밍 응답 (chat_completion_stream) ===")
     for chunk in chat_completion_stream(
-        [{"role": "user", "content": "1부터 5까지 숫자를 하나씩 세어줘."}], max_tokens=200
+        [{"role": "user", "content": "1부터 5까지 숫자를 하나씩 세어줘."}],
+        max_tokens=200,
     ):
         print(f"[chunk] {chunk!r}")

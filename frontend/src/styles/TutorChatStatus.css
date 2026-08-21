@@ -1,0 +1,23 @@
+.chat-input-status {
+  flex: 0 0 auto;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid #dfe6ee;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.chat-input-status-busy {
+  border-color: #c7d4ee;
+  background: #f1f5ff;
+  color: #3858a9;
+}
+
+.chat-input-status-error {
+  border-color: #f2b9b9;
+  background: #fff4f4;
+  color: #9c2929;
+}

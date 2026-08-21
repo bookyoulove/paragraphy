@@ -13,10 +13,13 @@ CallbackHandler를 미리 바인딩해 둔다(`with_config`). 그래프 노드�
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import cast
 
 from langchain.chat_models import init_chat_model
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage
 from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
@@ -29,7 +32,7 @@ class LLMConfigurationError(RuntimeError):
 
 
 @lru_cache(maxsize=1)
-def _langfuse_callbacks() -> list[object]:
+def _langfuse_callbacks() -> list[BaseCallbackHandler]:
     if not langfuse_enabled:
         return []
     from langfuse.langchain import CallbackHandler
@@ -38,8 +41,8 @@ def _langfuse_callbacks() -> list[object]:
 
 
 @lru_cache(maxsize=1)
-def get_chat_model() -> BaseChatModel:
-    """환경 설정으로 고정된 LangChain ChatModel을 반환한다."""
+def _create_chat_model() -> BaseChatModel:
+    """환경 설정으로 고정된 LangChain ChatModel을 생성한다."""
     if not settings.ai_cloud_api_key:
         raise LLMConfigurationError(
             "AI_CLOUD_API_KEY 또는 OPENAI_API_KEY가 설정되지 않았습니다. .env를 확인하세요."
@@ -49,13 +52,18 @@ def get_chat_model() -> BaseChatModel:
             "AI_CLOUD_BASE_URL 또는 OPENAI_BASE_URL이 설정되지 않았습니다."
         )
 
-    model = init_chat_model(
+    return init_chat_model(
         model=settings.ai_cloud_model,
         model_provider="openai",
         api_key=settings.ai_cloud_api_key,
         base_url=settings.ai_cloud_base_url,
     )
-    return model.with_config({"callbacks": _langfuse_callbacks()})
+
+
+@lru_cache(maxsize=1)
+def get_chat_model() -> Runnable[LanguageModelInput, AIMessage]:
+    """환경 설정과 Langfuse 콜백이 적용된 ChatModel을 반환한다."""
+    return _create_chat_model().with_config(callbacks=_langfuse_callbacks())
 
 
 def get_structured_model[T: BaseModel](
@@ -73,5 +81,8 @@ def get_structured_model[T: BaseModel](
     명시적으로 붙인다. 이 경로가 실제로 채점/첨삭/루브릭/가드레일 대부분이
     쓰는 경로라 빠뜨리면 LLM 호출 대부분이 트레이싱에서 누락된다.
     """
-    structured = get_chat_model().with_structured_output(schema)
-    return structured.with_config({"callbacks": _langfuse_callbacks()})  # type: ignore
+    structured = _create_chat_model().with_structured_output(schema)
+    return cast(
+        Runnable[LanguageModelInput, T],
+        structured.with_config(callbacks=_langfuse_callbacks()),
+    )

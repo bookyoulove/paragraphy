@@ -1,0 +1,96 @@
+.agent-progress {
+  flex-shrink: 0;
+  padding: 10px 18px 11px;
+  border-bottom: 1px solid #cbd7eb;
+  background: #f7f9ff;
+  color: var(--brand);
+}
+
+.agent-progress.is-slow {
+  border-bottom-color: #e5c98f;
+  background: #fffaf0;
+  color: #8a5c16;
+}
+
+.agent-progress-content {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 1200px;
+  margin: 0 auto 7px;
+}
+
+.agent-progress-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: agent-progress-spin 0.8s linear infinite;
+}
+
+.agent-progress-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.agent-progress-copy strong {
+  font-size: 13px;
+}
+
+.agent-progress-copy span {
+  color: var(--muted);
+}
+
+.agent-progress-track {
+  height: 4px;
+  max-width: 1200px;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(56, 88, 169, 0.14);
+}
+
+.agent-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3858a9, #6f8ee3);
+  transition: width 1s linear;
+}
+
+.agent-progress.is-slow .agent-progress-track {
+  background: rgba(160, 106, 0, 0.14);
+}
+
+.agent-progress.is-slow .agent-progress-bar {
+  background: #c58a2b;
+  animation: agent-progress-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes agent-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes agent-progress-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .agent-progress-copy {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1px;
+  }
+}

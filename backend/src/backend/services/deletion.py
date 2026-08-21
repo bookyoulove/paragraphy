@@ -1,4 +1,9 @@
-from backend.orm.crud import CRUDAnalysisResult, CRUDChatMessage, CRUDChatSession, CRUDUserAnswer
+from backend.orm.crud import (
+    CRUDAnalysisResult,
+    CRUDChatMessage,
+    CRUDChatSession,
+    CRUDUserAnswer,
+)
 from backend.orm.models import AnalysisSessions, UserAnswers
 
 

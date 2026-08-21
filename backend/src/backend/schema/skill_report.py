@@ -1,8 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from backend.orm.models import UserSkillReportBase
 from shared.schema.skill_report import SkillAssessment
+
+from backend.orm.models import UserSkillReportBase
 
 
 class UserSkillReportCreate(UserSkillReportBase):

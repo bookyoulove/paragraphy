@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CompareTable from './CompareTable';
+import MiniComparisonChart from './MiniComparisonChart';
 import ProofList from './ProofList';
 import ScoreCard from './ScoreCard';
 
-export default function ResultPanel({ sessionId, result, results, selectedCorrectionIndex, proofFocusId, onSelectCorrection }) {
+export default function ResultPanel({
+  sessionId,
+  result,
+  results,
+  selectedCorrectionIndex,
+  proofFocusId,
+  onSelectCorrection,
+}) {
   const [tab, setTab] = useState('grade');
   const navigate = useNavigate();
   useEffect(() => {
@@ -38,8 +46,10 @@ export default function ResultPanel({ sessionId, result, results, selectedCorrec
               {results.length > 1 && (
                 <div className="compare-section">
                   <div className="compare-title">채점 비교</div>
+                  <MiniComparisonChart results={results} selectedAnswerId={result.answerId} />
                   <CompareTable
                     results={results}
+                    selectedAnswerId={result.answerId}
                     onSelectRound={(answerId) =>
                       navigate(`/history/${sessionId}/answers/${answerId}`)
                     }

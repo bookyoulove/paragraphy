@@ -40,7 +40,7 @@ def _rubric_item_suffix(metadata: dict[str, object]) -> str:
 
 def _format_rubric(items: list[RubricItem]) -> str:
     return "\n".join(
-        f"{idx}. {item.criteria} (5점 만점) — {item.description or '(설명 없음)'}"
+        f"{idx}. {item.criteria} (0~5점) — {item.description or '(설명 없음)'}"
         for idx, item in enumerate(items, 1)
     )
 
@@ -94,11 +94,15 @@ def _normalise_result(
         raise ValueError("criteria_scores가 비어 있습니다.")
 
     scores = result.criteria_scores
-    if len(scores) == len(rubric_items):
-        scores = [
-            score.model_copy(update={"criterion": rubric.criteria})
-            for score, rubric in zip(scores, rubric_items)
-        ]
+    if len(scores) != len(rubric_items):
+        raise ValueError(
+            "채점 결과 항목 수가 채점 기준 수와 일치하지 않습니다. "
+            f"(기준 {len(rubric_items)}개, 결과 {len(scores)}개)"
+        )
+    scores = [
+        score.model_copy(update={"criterion": rubric.criteria})
+        for score, rubric in zip(scores, rubric_items)
+    ]
     total_score = float(sum(score.score for score in scores))
     return scores, total_score, result.overall_comment
 
