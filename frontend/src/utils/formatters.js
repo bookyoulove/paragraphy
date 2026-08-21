@@ -20,7 +20,14 @@ export function formatCreatedAt(value) {
   });
 }
 
-export function selectDisplayedResults(results) {
+export function selectDisplayedResults(results, selectedId = null) {
   if (results.length <= 5) return results;
-  return [results[0], ...results.slice(-4)];
+  const latest = results.slice(-4);
+  const selectedIndex = results.findIndex(
+    (result) => result.id === selectedId || result.answerId === selectedId,
+  );
+  const selectedIsVisible = selectedIndex === 0 || selectedIndex >= results.length - 4;
+  if (selectedIndex === -1 || selectedIsVisible) return [results[0], ...latest];
+
+  return [results[0], results[selectedIndex], ...results.slice(-3)];
 }

@@ -2,8 +2,16 @@ import { buildComparisonModel } from '../utils/comparisonData';
 import { formatWrittenAt } from '../utils/formatters';
 import './CompareTable.css';
 
-export default function CompareTable({ results, onSelectRound, truncate = true }) {
-  const { columns, rows, hiddenMiddleCount } = buildComparisonModel(results, { truncate });
+export default function CompareTable({
+  results,
+  onSelectRound,
+  selectedAnswerId = null,
+  truncate = true,
+}) {
+  const { columns, rows, hiddenMiddleCount } = buildComparisonModel(results, {
+    truncate,
+    selectedId: selectedAnswerId,
+  });
   return (
     <div className="compare-table-wrap">
       {hiddenMiddleCount > 0 && (
@@ -30,7 +38,9 @@ export default function CompareTable({ results, onSelectRound, truncate = true }
                   {onSelectRound ? (
                     <button
                       type="button"
-                      className="compare-attempt-btn"
+                      className={`compare-attempt-btn ${
+                        item.answerId === selectedAnswerId ? 'is-selected' : ''
+                      }`}
                       onClick={() => onSelectRound(item.answerId)}
                     >
                       {item.name}
@@ -39,6 +49,9 @@ export default function CompareTable({ results, onSelectRound, truncate = true }
                     <span className="compare-th-name">{item.name}</span>
                   )}
                   <span className="compare-th-date">{formatWrittenAt(item.answerCreatedAt)}</span>
+                  {item.answerId === selectedAnswerId && (
+                    <span className="compare-current-label">현재 선택</span>
+                  )}
                 </th>
               ),
             )}

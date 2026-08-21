@@ -3,17 +3,26 @@ import { selectDisplayedResults } from './formatters';
 export const COMPARISON_LABEL_WIDTH = 180;
 export const COMPARISON_ITEM_WIDTH = 150;
 
-export function buildComparisonModel(results = [], { truncate = true } = {}) {
-  const displayed = truncate ? selectDisplayedResults(results) : results;
+export function buildComparisonModel(results = [], { truncate = true, selectedId = null } = {}) {
+  const displayed = truncate ? selectDisplayedResults(results, selectedId) : results;
   const hiddenMiddleCount = truncate ? Math.max(0, results.length - displayed.length) : 0;
-  const hasHiddenMiddle = hiddenMiddleCount > 0;
-  const columns = hasHiddenMiddle
-    ? [
-        displayed[0],
-        { id: 'comparison-gap', isGap: true, hiddenMiddleCount },
-        ...displayed.slice(1),
-      ]
-    : displayed;
+  const resultIndexes = new Map(results.map((result, index) => [result.id, index]));
+  const columns = [];
+  let previousResultIndex = null;
+
+  displayed.forEach((result, index) => {
+    const resultIndex = resultIndexes.get(result.id);
+    if (index > 0 && resultIndex > previousResultIndex + 1) {
+      columns.push({
+        id: `comparison-gap-${index}`,
+        isGap: true,
+        hiddenMiddleCount: resultIndex - previousResultIndex - 1,
+      });
+    }
+    columns.push(result);
+    previousResultIndex = resultIndex;
+  });
+
   const criteria = [];
   const seenCriteria = new Set();
 
@@ -49,12 +58,19 @@ export function buildComparisonModel(results = [], { truncate = true } = {}) {
     return row;
   });
 
-  if (hasHiddenMiddle) {
-    const gapRow = { attempt: '…', isGap: true, total: null };
-    criteria.forEach((label) => {
-      gapRow[label] = null;
+  if (columns.some((column) => column.isGap)) {
+    const chartGapRows = columns
+      .map((column, index) => (column.isGap ? { index, column } : null))
+      .filter(Boolean)
+      .reverse();
+    chartGapRows.forEach(({ index, column }) => {
+      const gapRow = { attempt: '…', isGap: true, total: null };
+      criteria.forEach((label) => {
+        gapRow[label] = null;
+      });
+      const chartIndex = columns.slice(0, index).filter((item) => !item.isGap).length;
+      chartData.splice(chartIndex, 0, gapRow);
     });
-    chartData.splice(1, 0, gapRow);
   }
 
   return { displayed, columns, criteria, rows, chartData, hiddenMiddleCount };

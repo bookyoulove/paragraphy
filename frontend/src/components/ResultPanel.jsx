@@ -4,7 +4,14 @@ import CompareTable from './CompareTable';
 import ProofList from './ProofList';
 import ScoreCard from './ScoreCard';
 
-export default function ResultPanel({ sessionId, result, results, selectedCorrectionIndex, proofFocusId, onSelectCorrection }) {
+export default function ResultPanel({
+  sessionId,
+  result,
+  results,
+  selectedCorrectionIndex,
+  proofFocusId,
+  onSelectCorrection,
+}) {
   const [tab, setTab] = useState('grade');
   const navigate = useNavigate();
   useEffect(() => {
@@ -40,6 +47,7 @@ export default function ResultPanel({ sessionId, result, results, selectedCorrec
                   <div className="compare-title">채점 비교</div>
                   <CompareTable
                     results={results}
+                    selectedAnswerId={result.answerId}
                     onSelectRound={(answerId) =>
                       navigate(`/history/${sessionId}/answers/${answerId}`)
                     }

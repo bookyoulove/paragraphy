@@ -13,6 +13,18 @@
     text-align: center !important;
 }
 
+.compare-attempt-btn.is-selected {
+    color: #d45d3d;
+}
+
+.compare-current-label {
+    display: block;
+    margin-top: 2px;
+    color: #d45d3d;
+    font-size: 10px;
+    font-weight: 700;
+}
+
 .comparison-scroll {
     width: 100%;
     overflow-x: auto;
