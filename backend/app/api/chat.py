@@ -25,19 +25,25 @@ result_id는 연결 시점에 서버가 검증한 값만 이후 모든 메시지
 
 from __future__ import annotations
 
+from app.core.db import SessionLocal
+from app.models import AnalysisSession, ChatMessage, ChatSession, User
+from app.services.chat_tools import (
+    ChatToolError,
+    format_context_for_prompt,
+    load_feedback_context,
+)
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.agents.tutor_chat_graph import tutor_chat_app
-from app.core.db import SessionLocal
-from app.models import AnalysisSession, ChatMessage, ChatSession, User, UserAnswer
-from app.services.chat_tools import ChatToolError, format_context_for_prompt, load_feedback_context
 
 router = APIRouter(tags=["chat"])
 
 
 def _get_or_create_chat_session(db: Session, result_id: str) -> ChatSession:
-    chat_session = db.query(ChatSession).filter(ChatSession.result_id == result_id).one_or_none()
+    chat_session = (
+        db.query(ChatSession).filter(ChatSession.result_id == result_id).one_or_none()
+    )
     if chat_session is None:
         chat_session = ChatSession(result_id=result_id)
         db.add(chat_session)
@@ -60,9 +66,18 @@ async def chat_ws(websocket: WebSocket, result_id: str, user_identifier: str) ->
 
         # 세션 소유권 검사 (인증이 아닌 데이터 정합성 목적 — 컴포넌트 설계서 7절)
         user = db.query(User).filter(User.user_name == user_identifier).one_or_none()
-        session = db.query(AnalysisSession).filter(AnalysisSession.session_id == ctx.session_id).one()
+        session = (
+            db.query(AnalysisSession)
+            .filter(AnalysisSession.session_id == ctx.session_id)
+            .one()
+        )
         if user is None or session.user_id != user.user_id:
-            await websocket.send_json({"type": "error", "detail": "세션 소유자와 user_identifier가 일치하지 않습니다."})
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "detail": "세션 소유자와 user_identifier가 일치하지 않습니다.",
+                }
+            )
             await websocket.close(code=4403)
             return
 
@@ -73,7 +88,9 @@ async def chat_ws(websocket: WebSocket, result_id: str, user_identifier: str) ->
             .order_by(ChatMessage.created_at)
             .all()
         )
-        history: list[dict[str, str]] = [{"role": m.role, "content": m.content} for m in history_rows]
+        history: list[dict[str, str]] = [
+            {"role": m.role, "content": m.content} for m in history_rows
+        ]
         context_text = format_context_for_prompt(ctx)
 
         await websocket.send_json({"type": "ready", "history": history})
@@ -83,35 +100,58 @@ async def chat_ws(websocket: WebSocket, result_id: str, user_identifier: str) ->
             if not user_text.strip():
                 continue
 
-            db.add(ChatMessage(chat_id=chat_session.chat_id, role="user", content=user_text))
+            db.add(
+                ChatMessage(
+                    chat_id=chat_session.chat_id, role="user", content=user_text
+                )
+            )
             db.commit()
             history.append({"role": "user", "content": user_text})
 
-            graph_input = {"context_text": context_text, "history": history, "user_message": user_text}
+            graph_input = {
+                "context_text": context_text,
+                "history": history,
+                "user_message": user_text,
+            }
             final_state: dict = {}
             try:
                 # "custom" 모드 = chat_responder 노드가 writer()로 흘려보내는 텍스트 조각.
                 # "values" 모드 = 각 노드 실행 후의 전체 state 스냅샷 — 마지막 값이 최종 결과.
-                for stream_mode, payload in tutor_chat_app.stream(graph_input, stream_mode=["custom", "values"]):
+                for stream_mode, payload in tutor_chat_app.stream(
+                    graph_input, stream_mode=["custom", "values"]
+                ):
                     if stream_mode == "custom":
                         await websocket.send_json({"type": "chunk", "content": payload})
                     elif stream_mode == "values":
                         final_state = payload
-            except Exception as exc:  # 그래프 실행 자체가 예외를 던진 경우(설계상 흔치 않음)
-                await websocket.send_json({"type": "error", "detail": f"응답 생성 실패: {exc}"})
+            except Exception as exc:  # noqa: BLE001
+                await websocket.send_json(
+                    {"type": "error", "detail": f"응답 생성 실패: {exc}"}
+                )
                 continue
 
             if final_state.get("blocked"):
                 # 가드레일 차단 — chat_responder가 아예 실행되지 않아 chunk도, LLM 호출도 없었다.
-                await websocket.send_json({"type": "blocked", "reason": final_state.get("block_reason", "")})
+                await websocket.send_json(
+                    {"type": "blocked", "reason": final_state.get("block_reason", "")}
+                )
                 continue
 
             if final_state.get("error"):
-                await websocket.send_json({"type": "error", "detail": f"응답 생성 실패: {final_state['error']}"})
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "detail": f"응답 생성 실패: {final_state['error']}",
+                    }
+                )
                 continue
 
             reply = final_state.get("reply", "")
-            db.add(ChatMessage(chat_id=chat_session.chat_id, role="assistant", content=reply))
+            db.add(
+                ChatMessage(
+                    chat_id=chat_session.chat_id, role="assistant", content=reply
+                )
+            )
             db.commit()
             history.append({"role": "assistant", "content": reply})
 

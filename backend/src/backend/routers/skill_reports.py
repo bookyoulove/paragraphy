@@ -6,6 +6,9 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from shared.schema.recommend import RecommendRequest
+from shared.schema.rubric import RubricGenerationRequest
+from shared.schema.skill_report import GradedAnswerReview, WeeklySkillReportRequest
 from sqlmodel import select
 
 from backend.depends import (
@@ -25,19 +28,16 @@ from backend.orm.models import (
     UserAnswers,
     UserSkillReports,
 )
-from backend.schema.skill_report import UserSkillReportCreate, UserSkillReportPublic
-from backend.schema.problem.input import ProblemCreate
-from backend.schema.problem.response import ProblemPublicWithRubrics
-from backend.schema.rubric.input import RubricCreate
 from backend.schema.coach_message import (
     CoachMessageCreate,
     CoachMessagePublic,
     SendWeeklyReportEmailRequest,
 )
+from backend.schema.problem.input import ProblemCreate
+from backend.schema.problem.response import ProblemPublicWithRubrics
+from backend.schema.rubric.input import RubricCreate
+from backend.schema.skill_report import UserSkillReportCreate, UserSkillReportPublic
 from backend.services.email import render_weekly_report_html, send_weekly_report_email
-from shared.schema.skill_report import GradedAnswerReview, WeeklySkillReportRequest
-from shared.schema.recommend import RecommendRequest
-from shared.schema.rubric import RubricGenerationRequest
 
 router = APIRouter(prefix="/skill-reports", tags=["skill-reports"])
 

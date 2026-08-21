@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session
 
-from backend.orm.models import CoachMessageStatus, CoachMessages, UserSkillReports
+from backend.orm.models import CoachMessages, CoachMessageStatus, UserSkillReports
 from backend.orm.session import db_engine
 
 
@@ -51,9 +51,18 @@ def _smtp_settings() -> tuple[str, int, str, str, str, bool]:
     username = os.getenv("SMTP_USERNAME")
     password = os.getenv("SMTP_PASSWORD")
     sender = os.getenv("SMTP_FROM")
-    if not all((host, username, password, sender)):
-        raise RuntimeError("SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM must be configured.")
-    return host, int(os.getenv("SMTP_PORT", "587")), username, password, sender, os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    if host is None or username is None or password is None or sender is None:
+        raise RuntimeError(
+            "SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM must be configured."
+        )
+    return (
+        host,
+        int(os.getenv("SMTP_PORT", "587")),
+        username,
+        password,
+        sender,
+        os.getenv("SMTP_USE_TLS", "true").lower() == "true",
+    )
 
 
 def _deliver_email(recipient: str, title: str, content: str) -> None:
@@ -62,7 +71,9 @@ def _deliver_email(recipient: str, title: str, content: str) -> None:
     message["Subject"] = title
     message["From"] = formataddr(("Paragraphy", sender))
     message["To"] = recipient
-    message.set_content("이번 주 논술 리포트는 HTML 메일을 지원하는 환경에서 확인해 주세요.")
+    message.set_content(
+        "이번 주 논술 리포트는 HTML 메일을 지원하는 환경에서 확인해 주세요."
+    )
     message.add_alternative(content, subtype="html")
     with smtplib.SMTP(host, port, timeout=20) as smtp:
         if use_tls:
@@ -81,7 +92,7 @@ def send_weekly_report_email(message_id: UUID) -> None:
             _deliver_email(message.recipient_email, message.title, message.content)
             message.status = CoachMessageStatus.SENT
             message.sent_at = datetime.now(tz=ZoneInfo("Asia/Seoul"))
-        except Exception:
+        except OSError, RuntimeError, ValueError, smtplib.SMTPException:
             message.status = CoachMessageStatus.FAILED
         session.add(message)
         session.commit()

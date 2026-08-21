@@ -2,7 +2,13 @@ import base64
 from typing import Annotated
 from uuid import UUID
 
-from agent import AnalysisAgent, RecommendAgent, RubricAgent, SkillReportAgent, TutorChatAgent
+from agent import (
+    AnalysisAgent,
+    RecommendAgent,
+    RubricAgent,
+    SkillReportAgent,
+    TutorChatAgent,
+)
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from shared.protocol import (

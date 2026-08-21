@@ -1,4 +1,5 @@
 import base64
+import binascii
 from typing import Annotated
 from uuid import UUID
 
@@ -215,9 +216,10 @@ async def chat_with_tutor_ws(
 
     try:
         user_name = base64.b64decode(token).decode("utf-8")
-        user = user_db.get_name(user_name)
-    except Exception:
+    except binascii.Error, UnicodeDecodeError:
         user = None
+    else:
+        user = user_db.get_name(user_name)
     if user is None:
         await websocket.send_json(
             {"type": "error", "detail": "인증 토큰이 올바르지 않습니다."}
@@ -297,9 +299,7 @@ async def chat_with_tutor_ws(
                         await websocket.send_json({"type": "chunk", "content": payload})
                     elif kind == "state":
                         final_state = payload
-            except (
-                Exception
-            ) as exc:  # 그래프 실행 자체가 예외를 던진 경우(설계상 흔치 않음)
+            except Exception as exc:  # noqa: BLE001
                 await websocket.send_json(
                     {"type": "error", "detail": f"응답 생성 실패: {exc}"}
                 )
