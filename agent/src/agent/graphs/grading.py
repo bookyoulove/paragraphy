@@ -40,7 +40,7 @@ def _rubric_item_suffix(metadata: dict[str, object]) -> str:
 
 def _format_rubric(items: list[RubricItem]) -> str:
     return "\n".join(
-        f"{idx}. {item.criteria} (5점 만점) — {item.description or '(설명 없음)'}"
+        f"{idx}. {item.criteria} (0~5점) — {item.description or '(설명 없음)'}"
         for idx, item in enumerate(items, 1)
     )
 

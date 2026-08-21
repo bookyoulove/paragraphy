@@ -6,7 +6,7 @@ from sqlmodel import SQLModel
 
 class CriteriaScore(BaseModel):
     criterion: str
-    score: int = Field(ge=1, le=5)
+    score: int = Field(ge=0, le=5)
     rationale: str
     improvement: str
 
