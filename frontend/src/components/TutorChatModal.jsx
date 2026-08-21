@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
+import '../styles/TutorChatStatus.css';
 
 const waitingMessage = {
   role: 'assistant',
@@ -145,13 +146,36 @@ export default function TutorChatModal({ session, result: resultOverride }) {
   };
 
   const inputDisabled = !result || status !== 'open' || waiting;
+  const inputStatus = !result
+    ? { tone: 'info', text: '채점 결과가 있어야 Tutor에게 질문할 수 있어요.' }
+    : status === 'connecting'
+      ? { tone: 'info', text: 'Tutor Chat에 연결하는 중이라 입력할 수 없어요.' }
+      : status === 'error'
+        ? {
+            tone: 'error',
+            text: 'Tutor Chat 연결에 실패해 입력할 수 없어요. 모달을 닫고 다시 열어보세요.',
+          }
+        : status === 'closed'
+          ? {
+              tone: 'error',
+              text: 'Tutor Chat 연결이 종료되어 입력할 수 없어요. 모달을 닫고 다시 열어보세요.',
+            }
+          : status === 'idle'
+            ? { tone: 'info', text: 'Tutor Chat 연결을 준비하는 중이에요.' }
+            : waiting
+              ? { tone: 'busy', text: 'Tutor가 답변을 작성하는 동안 잠시 기다려주세요.' }
+              : null;
   const placeholder = !result
     ? '답안을 채점한 뒤 질문할 수 있어요'
     : status === 'connecting'
       ? '연결하는 중...'
-      : waiting
-        ? 'Tutor가 답변을 작성 중입니다…'
-        : 'Tutor에게 질문하기';
+      : status === 'error'
+        ? '연결에 실패해 질문할 수 없어요'
+        : status === 'closed'
+          ? '연결이 종료되어 질문할 수 없어요'
+          : waiting
+            ? 'Tutor가 답변을 작성 중입니다…'
+            : 'Tutor에게 질문하기';
 
   return (
     <>
@@ -194,8 +218,13 @@ export default function TutorChatModal({ session, result: resultOverride }) {
                 </div>
               )}
               {messages.map((message, index) => (
-                <div className={`chat-box ${boxClass(message.role)}`} key={message.id ?? `${message.role}-${index}`}>
-                  <div className={`chat-badge ${badgeClass(message.role)}`}>{badgeLabel(message.role)}</div>
+                <div
+                  className={`chat-box ${boxClass(message.role)}`}
+                  key={message.id ?? `${message.role}-${index}`}
+                >
+                  <div className={`chat-badge ${badgeClass(message.role)}`}>
+                    {badgeLabel(message.role)}
+                  </div>
                   <div className="chat-msg">
                     {message.text}
                     {message.streaming && <span className="chat-caret" />}
@@ -217,6 +246,14 @@ export default function TutorChatModal({ session, result: resultOverride }) {
               )}
               <div ref={messagesEndRef} />
             </div>
+            {inputStatus && (
+              <p
+                className={`chat-input-status chat-input-status-${inputStatus.tone}`}
+                role="status"
+              >
+                {inputStatus.text}
+              </p>
+            )}
             <div className="chat-input-wrap">
               <input
                 value={question}

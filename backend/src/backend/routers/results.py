@@ -52,7 +52,7 @@ class ResultRanking(BaseModel):
     rank: int = Field(ge=1)
     attempt_count: int = Field(ge=1)
     percentile: float = Field(ge=0, le=100)
-    score: float = Field(ge=1, le=5)
+    score: float = Field(ge=0, le=5)
     score_scale: int = 5
 
 

@@ -8,7 +8,7 @@ function formatPeriod(report) {
   return `${start.getMonth() + 1}.${start.getDate()} ~ ${end.getMonth() + 1}.${end.getDate()}`;
 }
 
-export default function WeeklyReportsPage({ user }) {
+export default function WeeklyReportsPage({ user, onCreateReport }) {
   const navigate = useNavigate();
   const [reports, setReports] = useState(null);
   const [error, setError] = useState('');
@@ -23,7 +23,7 @@ export default function WeeklyReportsPage({ user }) {
     setError('');
     setGenerating(true);
     try {
-      const report = await api.createWeeklySkillReport();
+      const report = await onCreateReport();
       navigate(`/weekly-reports/${report.id}`);
     } catch (err) {
       setError(err.message || '주간 리포트 생성에 실패했습니다.');

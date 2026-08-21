@@ -10,7 +10,7 @@ const labels = {
   passage_summary: '지문 요약',
 };
 
-export default function WeeklyReportDetailPage({ user, onRefreshProblems }) {
+export default function WeeklyReportDetailPage({ user, onRefreshProblems, onGenerateProblem }) {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const [report, setReport] = useState(null);
@@ -46,7 +46,7 @@ export default function WeeklyReportDetailPage({ user, onRefreshProblems }) {
   const generateProblem = async () => {
     setGeneratingProblem(true);
     try {
-      await api.generateProblemFromReport(report.id);
+      await onGenerateProblem(report.id);
       await onRefreshProblems();
       navigate('/problems');
     } catch (err) {

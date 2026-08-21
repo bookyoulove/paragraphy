@@ -17,7 +17,7 @@ class CriterionScore(BaseModel):
     criterion: str
     rationale: str = ""
     improvement: str = ""
-    score: int = Field(ge=1, le=5)
+    score: int = Field(ge=0, le=5)
     max_score: int = 5
 
 
