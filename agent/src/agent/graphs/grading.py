@@ -3,22 +3,27 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from collections.abc import Mapping, Sequence
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
 from langgraph.graph import END, START, StateGraph
+from shared.schema.rubric import Rubric
 
 from agent.integrations import retrieval
+from agent.integrations.prompts import get_prompt
 from agent.integrations.spelling import (
     SpellingIntegrationError,
     check_spelling,
 )
 from agent.model import get_structured_model
 from agent.nodes import guardrails
+from agent.retry import StructuredOutputError, invoke_with_retry
 from agent.schemas.grading import (
     CriterionScore,
     GradingOutput,
     GradingState,
+    GrammarError,
     RubricItem,
 )
 
@@ -26,6 +31,11 @@ MAX_ATTEMPTS = 3
 RAG_TOP_K = 4
 
 logger = logging.getLogger(__name__)
+
+
+def _rubric_item_suffix(metadata: dict[str, object]) -> str:
+    rubric_item = metadata.get("rubric_item")
+    return f"/{rubric_item}" if isinstance(rubric_item, str) and rubric_item else ""
 
 
 def _format_rubric(items: list[RubricItem]) -> str:
@@ -40,37 +50,37 @@ def _build_prompt(state: GradingState) -> str:
     rubric_text = _format_rubric(state.rubric_items)
     model_answer = problem.model_answer or "(제공되지 않음)"
     rag_block = f"\n\n참고 자료:\n{state.rag_context}" if state.rag_context else ""
-    return f"""너는 대입 논술 답안을 채점하는 채점 에이전트다. 채점 기준에 따라 학생 답안을
-항목별 1~5점으로 평가하고, 각 점수의 구체적인 근거와 학생이 스스로 개선할 수 있는 방향을
-제시하라. 개선 방향은 완성된 답안이나 문단을 대신 쓰지 말고 작성 방향만 안내하라.
-
-문제:
-{problem.content}
-
-모범답안(참고용):
-{model_answer}
-
-채점 기준:
-{rubric_text}
-{rag_block}
-
-학생 답안:
-{state.request.user_answer}
-
-채점 기준과 같은 순서와 개수로 결과를 작성하라. criterion은 기준의 이름을 그대로 사용하라.
-참고 자료는 채점 판단의 근거로만 사용하고 학생 답안과 혼동하지 마라."""
+    return get_prompt(
+        "grading-agent",
+        problem_content=problem.content,
+        model_answer=model_answer,
+        rubric_text=rubric_text,
+        rag_block=rag_block,
+        user_answer=state.request.user_answer,
+    )
 
 
-def _normalise_rubrics(raw_items: list[Any]) -> list[RubricItem]:
+type RawRubric = Rubric | RubricItem | Mapping[str, str | None]
+
+
+def _normalise_rubrics(
+    raw_items: Sequence[RawRubric],
+) -> list[RubricItem]:
     normalised: list[RubricItem] = []
     for item in raw_items:
         if isinstance(item, RubricItem):
             normalised.append(item)
             continue
-        criteria = item.get("criteria", "") if isinstance(item, dict) else item.criteria
-        description = (
-            item.get("description", "") if isinstance(item, dict) else item.description
-        ) or ""
+        if isinstance(item, Mapping):
+            criteria_value = item.get("criteria")
+            description_value = item.get("description")
+            criteria = criteria_value if isinstance(criteria_value, str) else ""
+            description = (
+                description_value if isinstance(description_value, str) else ""
+            )
+        else:
+            criteria = item.criteria
+            description = item.description or ""
         normalised.append(
             RubricItem(criteria=criteria, description=description, max_score=5)
         )
@@ -78,7 +88,7 @@ def _normalise_rubrics(raw_items: list[Any]) -> list[RubricItem]:
 
 
 def _normalise_result(
-    result: Any, rubric_items: list[RubricItem]
+    result: GradingOutput, rubric_items: list[RubricItem]
 ) -> tuple[list[CriterionScore], float, str]:
     if not result.criteria_scores:
         raise ValueError("criteria_scores가 비어 있습니다.")
@@ -93,7 +103,8 @@ def _normalise_result(
     return scores, total_score, result.overall_comment
 
 
-def supervisor_node(state: GradingState) -> dict[str, Any]:
+@observe(name="grading:supervisor", as_type="span")
+def supervisor_node(state: GradingState) -> dict[str, object]:
     rubric_items = _normalise_rubrics(state.request.problem.rubrics)
     if not rubric_items:
         return {"error": "채점 기준(rubric_items)이 비어 있습니다."}
@@ -106,7 +117,8 @@ def _route_after_supervisor(state: GradingState) -> str:
     return END if state.error else "guardrail_input"
 
 
-def guardrail_input_node(state: GradingState) -> dict[str, Any]:
+@observe(name="grading:guardrail_input", as_type="span")
+def guardrail_input_node(state: GradingState) -> dict[str, object]:
     result = guardrails.check_input_safety(state.request.user_answer)
     if result.flagged:
         return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
@@ -117,6 +129,7 @@ def _route_after_guardrail_input(state: GradingState) -> str:
     return END if state.error else "rag_agent"
 
 
+@observe(name="grading:rag_agent", as_type="span")
 def rag_agent_node(state: GradingState) -> dict[str, str]:
     problem = state.request.problem
     query_text = (
@@ -141,13 +154,14 @@ def rag_agent_node(state: GradingState) -> dict[str, str]:
 
     context = "\n\n---\n\n".join(
         f"[{item['metadata'].get('source', '')}/{item['metadata'].get('doc_type', '')}"
-        f"{'/' + item['metadata']['rubric_item'] if item['metadata'].get('rubric_item') else ''}] {item['text']}"
+        f"{_rubric_item_suffix(item['metadata'])}] {item['text']}"
         for item in results
     )
     return {"rag_context": context}
 
 
-def grammar_agent_node(state: GradingState) -> dict[str, Any]:
+@observe(name="grading:grammar_agent", as_type="span")
+def grammar_agent_node(state: GradingState) -> dict[str, object]:
     essay_text = state.request.user_answer
     try:
         result = check_spelling(essay_text)
@@ -163,39 +177,47 @@ def grammar_agent_node(state: GradingState) -> dict[str, Any]:
         }
 
 
-def grading_agent_node(state: GradingState) -> dict[str, Any]:
+@observe(name="grading:grading_agent", as_type="span")
+def grading_agent_node(state: GradingState) -> dict[str, object]:
     base_prompt = _build_prompt(state)
-    last_error = ""
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        prompt = base_prompt
-        if attempt > 1:
-            prompt += (
-                f"\n\n이전 구조화 출력이 실패했다. 오류: {last_error}. 다시 시도하라."
-            )
-        try:
-            result = get_structured_model(GradingOutput).invoke(
-                [HumanMessage(content=prompt)]
-            )
-            scores, total_score, overall_comment = _normalise_result(
-                result, state.rubric_items
-            )
-            return {
-                "criteria_scores": scores,
-                "total_score": total_score,
-                "overall_comment": overall_comment,
-                "grammar_errors": result.grammar_errors,
-                "error": None,
-            }
-        except Exception as exc:
-            logger.exception("Grading model attempt %d failed", attempt)
-            last_error = str(exc)
 
-    return {
-        "error": f"채점 에이전트가 {MAX_ATTEMPTS}회 시도 후에도 실패했습니다: {last_error}"
-    }
+    try:
+        model = get_structured_model(GradingOutput)
+
+        def invoke(
+            prompt: str,
+        ) -> tuple[list[CriterionScore], float, str, list[GrammarError]]:
+            result = model.invoke([HumanMessage(content=prompt)])
+            try:
+                scores, total_score, overall_comment = _normalise_result(
+                    result, state.rubric_items
+                )
+            except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                raise StructuredOutputError(str(exc)) from exc
+            return scores, total_score, overall_comment, result.grammar_errors
+
+        scores, total_score, overall_comment, grammar_errors = invoke_with_retry(
+            invoke,
+            base_prompt,
+            operation_name="Grading model",
+            max_attempts=MAX_ATTEMPTS,
+        )
+        return {
+            "criteria_scores": scores,
+            "total_score": total_score,
+            "overall_comment": overall_comment,
+            "grammar_errors": grammar_errors,
+            "error": None,
+        }
+    except Exception as exc:
+        logger.exception("Grading model invocation failed")
+        return {
+            "error": f"채점 에이전트가 {MAX_ATTEMPTS}회 시도 후에도 실패했습니다: {exc}"
+        }
 
 
-def guardrail_output_node(state: GradingState) -> dict[str, Any]:
+@observe(name="grading:guardrail_output", as_type="span")
+def guardrail_output_node(state: GradingState) -> dict[str, object]:
     if state.error:
         return {}
     result = guardrails.check_direct_writing(state.criteria_scores)

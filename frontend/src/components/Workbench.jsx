@@ -1,16 +1,64 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import AnnotatedAnswer from './AnnotatedAnswer';
 import ResultPanel from './ResultPanel';
+import RubricModal from './RubricModal';
 
-export default function Workbench({ problem, session, onSave, onGrade }) {
-  const [answer, setAnswer] = useState(session?.answer || '');
+const initialMode = (session, readOnly, startNew) => {
+  if (readOnly) return 'view';
+  if (startNew) return 'new';
+  return session?.answerSubmitted ? 'view' : 'edit';
+};
+
+export default function Workbench({
+  problem,
+  session,
+  onSave,
+  onGrade,
+  onNewAnswerStateChange,
+  answerOverride = null,
+  resultOverride,
+  onNewAnswer,
+  onEditAnswer,
+  readOnly = false,
+  startNew = false,
+}) {
+  const navigate = useNavigate();
+  const answerValue = answerOverride?.userAnswer ?? session?.answer ?? '';
+  const answerName = answerOverride?.name ?? session?.answerName ?? '';
+  const [answer, setAnswer] = useState(startNew ? '' : answerValue);
+  const [name, setName] = useState(startNew ? '' : answerName);
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
-  const result = session?.results.at(-1);
+  const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
+  const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
+  const [proofFocusId, setProofFocusId] = useState(0);
+  const startedNewRoundRef = useRef(false);
+  const latestResult = resultOverride === undefined ? session?.results.at(-1) : resultOverride;
+  const result = mode === 'new' ? null : latestResult;
+  const editable = mode !== 'view';
+  const pendingNewRound = mode === 'new';
   useEffect(() => {
-    setAnswer(session?.answer ?? '');
+    if (startNew && !startedNewRoundRef.current) {
+      startedNewRoundRef.current = true;
+      setAnswer('');
+      setName('');
+      setSaved('');
+      setMode('new');
+      setSelectedCorrectionIndex(null);
+      return;
+    }
+    if (!startNew) startedNewRoundRef.current = false;
+    setAnswer(startNew ? '' : answerValue);
+    setName(startNew ? '' : answerName);
     setSaved('');
-  }, [session?.id]);
+    setMode(initialMode(session, readOnly, startNew));
+    setSelectedCorrectionIndex(null);
+  }, [session?.id, answerOverride?.id, readOnly, startNew]);
+  useEffect(() => {
+    onNewAnswerStateChange?.(mode === 'new');
+  }, [mode, onNewAnswerStateChange]);
   if (!problem)
     return (
       <div className="empty-state">
@@ -20,16 +68,39 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
         </div>
       </div>
     );
+  const startNewAnswer = () => {
+    if (onNewAnswer) {
+      onNewAnswer();
+      return;
+    }
+    setAnswer('');
+    setName('');
+    setSaved('');
+    setMode('new');
+  };
+  const editAnswer = () => {
+    if (onEditAnswer) {
+      onEditAnswer();
+      return;
+    }
+    setMode('edit');
+  };
   const save = async () => {
-    await onSave(answer);
-    setSaved('답안이 저장되었습니다.');
-    setTimeout(() => setSaved(''), 2200);
+    try {
+      await onSave(answer, { createNew: pendingNewRound, name });
+      setMode('edit');
+      setSaved('임시 저장되었습니다.');
+      setTimeout(() => setSaved(''), 2200);
+    } catch (err) {
+      setSaved(err.message || '임시 저장에 실패했습니다.');
+    }
   };
   const grade = async () => {
     setGrading(true);
     try {
-      const savedSession = await onSave(answer);
+      const savedSession = await onSave(answer, { createNew: pendingNewRound, name });
       await onGrade(savedSession);
+      setMode('view');
     } catch (err) {
       setSaved(err.message || '채점 요청에 실패했습니다.');
     } finally {
@@ -38,28 +109,77 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
   };
   const editor = (
     <section className="answer-box">
+      {pendingNewRound && session?.answers?.length > 0 && (
+        <div className="new-round-notice">
+          <span>
+            이 문제에 이전 답안 {session.answers.length}개가 있습니다. 새 답안은 새 회차로
+            저장됩니다.
+          </span>
+          <button
+            type="button"
+            className="ghost-btn"
+            onClick={() => navigate(`/history/${session.id}`)}
+          >
+            이전 답안 보기
+          </button>
+        </div>
+      )}
       <div className="answer-header">
-        <div className="answer-title">답안 작성</div>
+        <div className="answer-title">{editable ? '답안 작성' : '답안 보기'}</div>
+        {editable && (
+          <input
+            className="answer-name-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={50}
+            placeholder={pendingNewRound ? '답안 이름 (비워두면 자동으로 N회차)' : '답안 이름'}
+            aria-label="답안 이름"
+          />
+        )}
         <div className="word-counter">{answer.trim().length}자</div>
       </div>
       <div className="highlight-wrap">
-        <textarea
-          className="answer-input"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          placeholder="여기에 답안을 작성하세요."
-          spellCheck="false"
-        />
+        {!editable && result ? (
+          <AnnotatedAnswer
+            text={answer}
+            corrections={result.errors}
+            selectedIndex={selectedCorrectionIndex}
+            onSelect={(index) => {
+              setSelectedCorrectionIndex(index);
+              if (index !== null) setProofFocusId((value) => value + 1);
+            }}
+          />
+        ) : (
+          <textarea
+            className="answer-input"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="여기에 답안을 작성하세요."
+            spellCheck="false"
+          />
+        )}
       </div>
-      <div className="answer-actions">
-        <span className="save-status">{saved}</span>
-        <button className="primary-btn" onClick={save}>
-          답안 저장
-        </button>
-        <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
-          {grading ? '채점 중...' : '채점 요청'}
-        </button>
-      </div>
+      {editable ? (
+        <div className="answer-actions">
+          <span className="save-status">{saved}</span>
+          <button className="primary-btn" onClick={save}>
+            임시 저장
+          </button>
+          <button className="primary-btn" disabled={grading || !answer.trim()} onClick={grade}>
+            {grading ? '채점 중...' : '채점 요청'}
+          </button>
+        </div>
+      ) : (
+        <div className="answer-actions">
+          <span className="save-status" />
+          <button className="primary-btn" onClick={startNewAnswer}>
+            새로 풀기
+          </button>
+          <button className="primary-btn" onClick={editAnswer}>
+            수정하기
+          </button>
+        </div>
+      )}
     </section>
   );
   const detail = (
@@ -80,24 +200,24 @@ export default function Workbench({ problem, session, onSave, onGrade }) {
   return (
     <>
       <div className="work-columns">
-        <section className="column-slot">{result ? editor : detail}</section>
+        <section className="column-slot">{result || readOnly ? editor : detail}</section>
         <section className="column-slot">
-          {result ? <ResultPanel result={result} results={session.results} /> : editor}
+          {result || readOnly ? (
+            <ResultPanel
+              sessionId={session.id}
+              result={result}
+              results={session.results}
+              selectedCorrectionIndex={selectedCorrectionIndex}
+              proofFocusId={proofFocusId}
+              onSelectCorrection={setSelectedCorrectionIndex}
+            />
+          ) : (
+            editor
+          )}
         </section>
       </div>
       {showRubric && (
-        <div className="rubric-modal">
-          <div className="rubric-modal-backdrop" onClick={() => setShowRubric(false)} />
-          <div className="rubric-modal-card">
-            <div className="rubric-modal-header">
-              <div className="label-title">채점 기준</div>
-              <button className="ghost-btn" onClick={() => setShowRubric(false)}>
-                닫기 ✕
-              </button>
-            </div>
-            <div className="rubric-modal-body">{problem.rubric}</div>
-          </div>
-        </div>
+        <RubricModal rubric={problem.rubric} onClose={() => setShowRubric(false)} readOnly />
       )}
     </>
   );

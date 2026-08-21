@@ -1,58 +1,44 @@
-import { useEffect, useState } from 'react';
-import Landing from './components/Landing';
-import LoginModal from './components/LoginModal';
-import Brand from './components/Brand';
-import Sidebar from './components/Sidebar';
-import ProblemPicker from './components/ProblemPicker';
-import CustomProblemForm from './components/CustomProblemForm';
-import Workbench from './components/Workbench';
-import HistoryView from './components/HistoryView';
-import TutorChatModal from './components/TutorChatModal';
+import { useCallback, useEffect, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useMatch, useNavigate } from 'react-router-dom';
 import { api } from './api/client';
+import Brand from './components/Brand';
+import LoginModal from './components/LoginModal';
+import Sidebar from './components/Sidebar';
+import TutorChatModal from './components/TutorChatModal';
+import useAppData from './hooks/useAppData';
+import AnswerDetailPage from './pages/AnswerDetailPage';
+import AnswerListPage from './pages/AnswerListPage';
+import ComparePage from './pages/ComparePage';
+import ComparisonPage from './pages/ComparisonPage';
+import HistoryPage from './pages/HistoryPage';
+import LandingPage from './pages/LandingPage';
+import ProblemsPage from './pages/ProblemsPage';
+import SessionPage from './pages/SessionPage';
+import WeeklyReportDetailPage from './pages/WeeklyReportDetailPage';
+import WeeklyReportsPage from './pages/WeeklyReportsPage';
 
-export default function App() {
-  const [entered, setEntered] = useState(false);
-  const [user, setUser] = useState(null);
-  const [view, setView] = useState('pick-existing');
-  const [problems, setProblems] = useState([]);
-  const [problem, setProblem] = useState(null);
-  const [session, setSession] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const refresh = async () => setProblems(await api.getProblems());
-  useEffect(() => {
-    if (!user) return;
-    Promise.all([api.getProblems(), api.getSessions()]).then(([loadedProblems, loadedSessions]) => {
-      setProblems(loadedProblems);
-      setSessions(loadedSessions);
-    });
-  }, [user]);
-  const select = async (next) => {
-    const createdSession = await api.createSession(next);
-    setProblem(createdSession.problem);
-    setSession(createdSession);
-    setView('work');
+function AppLayout({ user, setUser, data, actions, error, clearError }) {
+  const navigate = useNavigate();
+  const [isWritingNewAnswer, setIsWritingNewAnswer] = useState(false);
+  const isSessionPage = useMatch('/sessions/:sessionId');
+  const isProblemsPage = useMatch('/problems');
+  const logout = () => {
+    api.clearToken();
+    actions.clear();
+    setUser(null);
+    navigate('/');
   };
-  const save = async (answer) => {
-    if (!session) return;
-    const updated = await api.saveAnswer(session, answer);
-    setSession(updated);
-    setSessions(await api.getSessions());
-    return updated;
-  };
-  const grade = async (sessionToGrade) => {
-    if (!sessionToGrade) return;
-    const updated = await api.grade(sessionToGrade);
-    setSession({ ...sessionToGrade, results: [...sessionToGrade.results, updated] });
-    setSessions(await api.getSessions());
-  };
-  const create = async (form) => {
-    const created = await api.createProblem(form);
-    await refresh();
-    await select(created);
-  };
-  if (!entered) return <Landing onStart={() => setEntered(true)} />;
+
   return (
     <>
+      {error && (
+        <div className="error-banner" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={clearError} aria-label="오류 메시지 닫기">
+            닫기 ✕
+          </button>
+        </div>
+      )}
       <div className="page-wrap">
         <header className="topbar">
           <Brand />
@@ -61,17 +47,7 @@ export default function App() {
             {user && (
               <div className="topbar-user">
                 <span>{user.identifier}</span>
-                <button
-                  className="ghost-btn dark"
-                  onClick={() => {
-                    api.clearToken();
-                    setUser(null);
-                    setProblem(null);
-                    setSession(null);
-                    setSessions([]);
-                    setProblems([]);
-                  }}
-                >
+                <button className="ghost-btn dark" onClick={logout}>
                   전환
                 </button>
               </div>
@@ -79,64 +55,175 @@ export default function App() {
           </div>
         </header>
         <div className="app-shell">
-          <Sidebar active={view} onChange={setView} />
+          <Sidebar />
           <main className="main-content">
             <div className="content-info-bar">
               <span className="current-problem-label">
-                {problem ? `${problem.title} — ${problem.meta.school}` : '선택된 문제가 없습니다.'}
+                {data.session?.problem
+                  ? `${data.session.problem.title} — ${data.session.problem.meta.school}`
+                  : '선택된 문제가 없습니다.'}
               </span>
-              <span className="session-status">{session ? `세션 ${session.id} 진행 중` : ''}</span>
+              {!isProblemsPage && (
+                <button
+                  className="ghost-btn content-info-action"
+                  onClick={() => navigate('/problems')}
+                >
+                  문제 선택하러 가기
+                </button>
+              )}
             </div>
-            {view === 'pick-existing' && (
-              <ProblemPicker
-                problems={problems}
-                selectedId={problem?.id}
-                onSelect={select}
-                onRefresh={refresh}
+            <Routes>
+              <Route
+                path="/problems"
+                element={
+                  <ProblemsPage
+                    problems={data.problems}
+                    onRefresh={actions.refreshProblems}
+                    onSelect={actions.createSession}
+                    onGenerate={actions.generateRubric}
+                    onCreate={actions.createProblem}
+                    onDeleteProblem={actions.deleteProblem}
+                    onRecommend={actions.recommendProblems}
+                  />
+                }
               />
-            )}
-            {view === 'pick-custom' && (
-              <CustomProblemForm onGenerate={api.generateRubric} onCreate={create} />
-            )}
-            {view === 'work' && (
-              <Workbench problem={problem} session={session} onSave={save} onGrade={grade} />
-            )}
-            {view === 'history' && (
-              <HistoryView
-                sessions={sessions}
-                onResume={(item) => {
-                  api.getSession(item.id).then((loaded) => {
-                    setProblem(loaded.problem);
-                    setSession(loaded);
-                  });
-                  setView('work');
-                }}
+              <Route
+                path="/sessions/:sessionId"
+                element={
+                  <SessionPage
+                    user={user}
+                    session={data.session}
+                    onLoad={actions.loadSession}
+                    onSave={actions.saveAnswer}
+                    onGrade={actions.grade}
+                    onRename={actions.renameAnswer}
+                    onNewAnswerStateChange={setIsWritingNewAnswer}
+                  />
+                }
               />
-            )}
-            {view === 'compare' && (
-              <HistoryView
-                sessions={sessions}
-                compareOnly
-                onResume={(item) => {
-                  api.getSession(item.id).then((loaded) => {
-                    setProblem(loaded.problem);
-                    setSession(loaded);
-                  });
-                  setView('work');
-                }}
+              <Route
+                path="/history"
+                element={<HistoryPage sessions={data.sessions} onDelete={actions.deleteSession} />}
               />
-            )}
+              <Route
+                path="/history/:sessionId"
+                element={
+                  <AnswerListPage
+                    user={user}
+                    session={data.session}
+                    onLoad={actions.loadSession}
+                    onDelete={actions.deleteAnswer}
+                  />
+                }
+              />
+              <Route
+                path="/history/:sessionId/answers/:answerId"
+                element={
+                  <AnswerDetailPage
+                    user={user}
+                    session={data.session}
+                    onLoad={actions.loadSession}
+                  />
+                }
+              />
+              <Route path="/compare" element={<ComparePage sessions={data.sessions} />} />
+              <Route
+                path="/compare/:sessionId"
+                element={
+                  <ComparisonPage user={user} session={data.session} onLoad={actions.loadSession} />
+                }
+              />
+              <Route path="/weekly-reports" element={<WeeklyReportsPage user={user} />} />
+              <Route
+                path="/weekly-reports/:reportId"
+                element={
+                  <WeeklyReportDetailPage user={user} onRefreshProblems={actions.refreshProblems} />
+                }
+              />
+              <Route path="*" element={<Navigate to="/problems" replace />} />
+            </Routes>
           </main>
         </div>
       </div>
-      {user && view === 'work' && session?.results.length > 0 && (
-        <TutorChatModal session={session} onChat={api.chat} onLoadHistory={api.getChat} />
-      )}
-      {!user && (
-        <LoginModal
-          onLogin={async ({ username, password }) => setUser(await api.login(username, password))}
-        />
-      )}
+      {user &&
+        isSessionPage &&
+        !isWritingNewAnswer &&
+        data.session?.answerSubmitted &&
+        data.session?.results.length > 0 && <TutorChatModal session={data.session} />}
+      {!user && <LoginModal onLogin={actions.login} />}
     </>
+  );
+}
+
+function ParagraphyApp() {
+  const [user, setUser] = useState(() => api.getStoredUser());
+  const [error, setError] = useState('');
+  const data = useAppData(user);
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      data.clear();
+      setUser(null);
+    };
+    window.addEventListener('paragraphy:auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('paragraphy:auth-expired', handleAuthExpired);
+  }, [data.clear]);
+  const reportError = useCallback(
+    (err) => setError(err?.message || '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'),
+    [],
+  );
+  const protect = useCallback(
+    (callback) =>
+      async (...args) => {
+        try {
+          return await callback(...args);
+        } catch (err) {
+          reportError(err);
+          throw err;
+        }
+      },
+    [reportError],
+  );
+  const actions = {
+    refreshProblems: protect(data.refreshProblems),
+    createSession: protect(data.createSession),
+    loadSession: protect(data.loadSession),
+    saveAnswer: protect(data.saveAnswer),
+    grade: protect(data.grade),
+    renameAnswer: protect(data.renameAnswer),
+    deleteAnswer: protect(data.deleteAnswer),
+    deleteSession: protect(data.deleteSession),
+    createProblem: protect(data.createProblem),
+    deleteProblem: protect(data.deleteProblem),
+    generateRubric: protect(api.generateRubric),
+    recommendProblems: protect(api.recommendProblems),
+    clear: data.clear,
+    login: protect(async ({ username, password }) => setUser(await api.login(username, password))),
+  };
+
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route
+        path="/*"
+        element={
+          <AppLayout
+            user={user}
+            setUser={setUser}
+            data={data}
+            actions={actions}
+            error={error}
+            clearError={() => setError('')}
+          />
+        }
+      />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <ParagraphyApp />
+    </BrowserRouter>
   );
 }

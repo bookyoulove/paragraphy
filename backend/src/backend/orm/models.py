@@ -10,7 +10,9 @@ from shared.schema.analysis import CriteriaScore
 from shared.schema.grammar import GrammarResult
 from shared.schema.problem import ProblemContent
 from shared.schema.rubric import Rubric as RubricBase
+from shared.schema.skill_report import SkillAssessment
 from shared.schema.tutor import ChatMessage as ChatMessageBase
+from sqlalchemy import UniqueConstraint
 from sqlmodel import (
     JSON,
     Column,
@@ -66,6 +68,90 @@ class Users(UserBase, TimeStampMixin, table=True):
 
     analysis_sessions: list["AnalysisSessions"] = Relationship(back_populates="user")
     problems: list["Problems"] = Relationship(back_populates="user")
+    skill_reports: list["UserSkillReports"] = Relationship(back_populates="user")
+    coach_messages: list["CoachMessages"] = Relationship(back_populates="user")
+
+
+"""
+USER_SKILL_REPORTS {
+    uuid id PK
+    uuid user_id FK
+    string period_type
+    datetime period_start
+    datetime period_end
+    int review_count
+    json skill_scores
+    text overall_skill_comment
+    text next_learning_goal
+    json recommended_actions
+    datetime created_at
+}
+"""
+
+
+class UserSkillReportBase(SQLModel):
+    period_type: str = Field(default="weekly", max_length=16)
+    period_start: datetime
+    period_end: datetime
+    review_count: int = Field(ge=1)
+    overall_skill_comment: str
+    next_learning_goal: str
+    recommended_actions: list[str] = Field(sa_column=Column(PydanticJSON(list[str])))
+
+
+class UserSkillReports(UserSkillReportBase, TimeStampMixin, table=True):
+    __tablename__ = "user_skill_reports"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    skill_scores: list[SkillAssessment] = Field(
+        sa_column=Column(PydanticJSON(list[SkillAssessment]))
+    )
+
+    user: Users = Relationship(back_populates="skill_reports")
+    coach_messages: list["CoachMessages"] = Relationship(back_populates="skill_report")
+
+
+"""
+COACH_MESSAGES {
+    uuid id PK
+    uuid user_id FK
+    uuid skill_report_id FK
+    string recipient_email
+    string message_type
+    string title
+    text content
+    string status
+    datetime scheduled_at
+    datetime sent_at
+    datetime created_at
+}
+"""
+
+
+class CoachMessageStatus(StrEnum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
+class CoachMessageBase(SQLModel):
+    recipient_email: str = Field(max_length=320)
+    message_type: str = Field(default="weekly_report", max_length=32)
+    title: str = Field(max_length=200)
+    content: str
+    status: CoachMessageStatus = Field(default=CoachMessageStatus.PENDING)
+    scheduled_at: datetime | None = None
+    sent_at: datetime | None = None
+
+
+class CoachMessages(CoachMessageBase, TimeStampMixin, table=True):
+    __tablename__ = "coach_messages"  # type: ignore
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id")
+    skill_report_id: UUID = Field(foreign_key="user_skill_reports.id")
+
+    user: Users = Relationship(back_populates="coach_messages")
+    skill_report: UserSkillReports = Relationship(back_populates="coach_messages")
 
 
 """
@@ -91,6 +177,7 @@ class ProblemBase(ProblemContent):
 class Problems(ProblemBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID | None = Field(None, foreign_key="users.id")
+    source_report_id: UUID | None = Field(None, foreign_key="user_skill_reports.id")
 
     user: Users | None = Relationship(back_populates="problems")
     rubrics: list["Rubrics"] = Relationship(back_populates="problem")
@@ -119,6 +206,7 @@ ANALYSIS_SESSIONS {
     uuid id PK
     uuid user_id FK
     uuid problem_id FK
+    UNIQUE (user_id, problem_id)
     datetime created_at
 }
 """
@@ -130,12 +218,23 @@ class AnalysisSessionBase(SQLModel):
 
 class AnalysisSessions(AnalysisSessionBase, TimeStampMixin, table=True):
     __tablename__ = "analysis_sessions"  # type: ignore
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "problem_id",
+            name="uq_analysis_sessions_user_problem",
+        ),
+    )
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(foreign_key="users.id")
     problem_id: UUID = Field(foreign_key="problems.id")
 
     user: Users = Relationship(back_populates="analysis_sessions")
-    user_answers: list["UserAnswers"] = Relationship(back_populates="analysis_session")
+    user_answers: list["UserAnswers"] = Relationship(
+        back_populates="analysis_session",
+        sa_relationship_kwargs={"order_by": "UserAnswers.created_at"},
+    )
     problem: Problems = Relationship(back_populates="analysis_sessions")
 
 
@@ -145,6 +244,8 @@ USER_ANSWERS {
     uuid session_id FK
     text user_answer
     string status
+    string name
+    datetime created_at
 }
 """
 
@@ -157,10 +258,12 @@ class Status(StrEnum):
 class UserAnswerBase(SQLModel):
     user_answer: str
     status: Status
+    name: str = Field(max_length=50)
 
 
-class UserAnswers(UserAnswerBase, table=True):
+class UserAnswers(UserAnswerBase, TimeStampMixin, table=True):
     __tablename__ = "user_answers"  # type: ignore
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     session_id: UUID = Field(foreign_key="analysis_sessions.id")
 

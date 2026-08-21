@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
 from langgraph.graph import END, START, StateGraph
 
 from agent.integrations import retrieval
+from agent.integrations.prompts import get_prompt
 from agent.integrations.spelling import (
     SpellingIntegrationError,
     check_spelling,
@@ -16,6 +17,7 @@ from agent.integrations.spelling import (
 )
 from agent.model import get_structured_model
 from agent.nodes import guardrails
+from agent.retry import invoke_with_retry
 from agent.schemas.feedback import (
     FeedbackState,
     PolishOutput,
@@ -29,7 +31,8 @@ RAG_TOP_K = 3
 logger = logging.getLogger(__name__)
 
 
-def guardrail_input_node(state: FeedbackState) -> dict[str, Any]:
+@observe(name="feedback:guardrail_input", as_type="span")
+def guardrail_input_node(state: FeedbackState) -> dict[str, object]:
     result = guardrails.check_input_safety(state.request.essay_text)
     if result.flagged:
         return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
@@ -40,11 +43,11 @@ def _route_after_guardrail_input(state: FeedbackState) -> str:
     return END if state.error else "spelling_agent"
 
 
-def spelling_agent_node(state: FeedbackState) -> dict[str, Any]:
+@observe(name="feedback:spelling_agent", as_type="span")
+def spelling_agent_node(state: FeedbackState) -> dict[str, object]:
     essay_text = state.request.essay_text
     try:
         result = check_spelling(essay_text)
-        print(result)
         return {
             "grammar_result": result,
             "revised_text": result.revised,
@@ -78,19 +81,16 @@ def _build_polish_prompt(state: FeedbackState, rag_context: str) -> str:
         or "(맞춤법 교정 사항 없음)"
     )
     rag_block = f"\n\n참고 자료:\n{rag_context}" if rag_context else ""
-    return f"""너는 논술 답안의 문장과 표현을 다듬는 첨삭 에이전트다. 맞춤법/띄어쓰기가 아니라
-문장 구조, 어휘 선택, 논증 효과 관점에서 실제로 필요한 윤문 제안만 만들어라. 문제가 없으면
-제안 목록을 비워라. 학생 답안을 완성해 주지 말고, 스스로 고칠 수 있는 방향을 제시하라.
-
-원문:
-{state.request.essay_text}
-
-이미 처리된 맞춤법 교정(중복 지적 금지):
-{corrections_text}
-{rag_block}"""
+    return get_prompt(
+        "feedback-agent",
+        essay_text=state.request.essay_text,
+        corrections_text=corrections_text,
+        rag_block=rag_block,
+    )
 
 
-def polish_agent_node(state: FeedbackState) -> dict[str, Any]:
+@observe(name="feedback:polish_agent", as_type="span")
+def polish_agent_node(state: FeedbackState) -> dict[str, object]:
     try:
         rag_results = retrieval.query(RAG_QUERY, n_results=RAG_TOP_K)
     except Exception:
@@ -102,31 +102,31 @@ def polish_agent_node(state: FeedbackState) -> dict[str, Any]:
     )
 
     base_prompt = _build_polish_prompt(state, rag_context)
-    last_error = ""
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        prompt = base_prompt
-        if attempt > 1:
-            prompt += (
-                f"\n\n이전 구조화 출력이 실패했다. 오류: {last_error}. 다시 시도하라."
-            )
-        try:
-            result = get_structured_model(PolishOutput).invoke(
-                [HumanMessage(content=prompt)]
-            )
-            return {
-                "polish_suggestions": result.polish_suggestions,
-                "overall_comment": result.overall_comment,
-                "error": None,
-            }
-        except Exception as exc:
-            logger.exception("Polish model attempt %d failed", attempt)
-            last_error = str(exc)
 
-    return {
-        "polish_suggestions": [],
-        "overall_comment": "",
-        "error": f"윤문 제안 생성이 {MAX_ATTEMPTS}회 시도 후에도 실패했습니다: {last_error}",
-    }
+    try:
+        model = get_structured_model(PolishOutput)
+
+        def invoke(prompt: str) -> PolishOutput:
+            return model.invoke([HumanMessage(content=prompt)])
+
+        result = invoke_with_retry(
+            invoke,
+            base_prompt,
+            operation_name="Polish model",
+            max_attempts=MAX_ATTEMPTS,
+        )
+        return {
+            "polish_suggestions": result.polish_suggestions,
+            "overall_comment": result.overall_comment,
+            "error": None,
+        }
+    except Exception as exc:
+        logger.exception("Polish model invocation failed")
+        return {
+            "polish_suggestions": [],
+            "overall_comment": "",
+            "error": f"윤문 제안 생성이 {MAX_ATTEMPTS}회 시도 후에도 실패했습니다: {exc}",
+        }
 
 
 def build_feedback_graph():

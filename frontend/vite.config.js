@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '')
-  console.log(env.VITE_ALLOWED_HOSTS.split(','))
   return {
+    base: env.VITE_BASE_PATH || '/',
     plugins: [react()],
     server: {
       host: '0.0.0.0',

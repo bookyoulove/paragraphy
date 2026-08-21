@@ -26,6 +26,9 @@ class PolishOutput(BaseModel):
 
 class FeedbackInput(BaseModel):
     essay_text: str
+    # Langfuse trace 메타데이터용 (선택, 관측 전용).
+    user_identifier: str | None = None
+    session_id: str | None = None
 
 
 class FeedbackOutput(BaseModel):

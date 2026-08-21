@@ -10,13 +10,13 @@ export default function LoginModal({ onLogin }) {
     try {
       await onLogin({ username: username.trim(), password });
     } catch (err) {
-      setError('로그인에 실패했습니다. 백엔드 연결을 확인하세요.');
+      setError(err.message || '로그인에 실패했습니다. 백엔드 연결을 확인하세요.');
     }
   };
   return (
     <div className="login-overlay">
       <div className="login-card">
-        <Brand />
+        <Brand link={false} />
         <div className="login-sub">사용자 이름과 비밀번호를 입력해 로그인하세요.</div>
         <label className="field-label" htmlFor="loginUsername">
           사용자 이름

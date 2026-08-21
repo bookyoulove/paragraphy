@@ -9,6 +9,7 @@ from backend.schema.rubric.input import RubricDraft
 
 class ProblemCreate(ProblemBase):
     user_id: UUID | None = None
+    source_report_id: UUID | None = None
 
 
 class ProblemUpdate(BaseModel):
