@@ -9,7 +9,6 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from shared.schema.recommend import RecommendRequest
 from shared.schema.rubric import RubricGenerationRequest
 from shared.schema.skill_report import GradedAnswerReview, WeeklySkillReportRequest
-from sqlmodel import select
 
 from backend.depends import (
     AnalysisResultDBDep,
@@ -21,12 +20,6 @@ from backend.depends import (
     SkillReportAgentDep,
     UserSkillReportDBDep,
     UserUUIDDep,
-)
-from backend.orm.models import (
-    AnalysisResults,
-    AnalysisSessions,
-    UserAnswers,
-    UserSkillReports,
 )
 from backend.schema.coach_message import (
     CoachMessageCreate,
@@ -55,12 +48,7 @@ def get_skill_report_list(
     user_id: UserUUIDDep,
     report_db: UserSkillReportDBDep,
 ) -> list[UserSkillReportPublic]:
-    statement = (
-        select(UserSkillReports)
-        .where(UserSkillReports.user_id == user_id)
-        .order_by(UserSkillReports.period_end.desc())
-    )
-    reports = report_db.session.exec(statement).all()
+    reports = report_db.get_by_user(user_id)
     return [UserSkillReportPublic.model_validate(report) for report in reports]
 
 
@@ -72,9 +60,13 @@ def get_skill_report(
 ) -> UserSkillReportPublic:
     report = report_db.get(report_id)
     if report is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다."
+        )
     if report.user_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다."
+        )
     return UserSkillReportPublic.model_validate(report)
 
 
@@ -90,9 +82,13 @@ async def generate_problem_from_report(
 ) -> ProblemPublicWithRubrics:
     report = report_db.get(report_id)
     if report is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다."
+        )
     if report.user_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다."
+        )
 
     if not report.skill_scores:
         raise HTTPException(
@@ -112,7 +108,10 @@ async def generate_problem_from_report(
         )
     )
     if generated.generated is None:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="맞춤 문제 생성에 실패했습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="맞춤 문제 생성에 실패했습니다.",
+        )
 
     problem = problem_db.create(
         ProblemCreate(
@@ -140,24 +139,6 @@ async def generate_problem_from_report(
     return ProblemPublicWithRubrics.model_validate(saved_problem)
 
 
-def _recent_reviews(
-    result_db: AnalysisResultDBDep,
-    user_id: UUID,
-    period_start: datetime,
-    period_end: datetime,
-) -> list[AnalysisResults]:
-    statement = (
-        select(AnalysisResults)
-        .join(UserAnswers, AnalysisResults.answer_id == UserAnswers.id)
-        .join(AnalysisSessions, UserAnswers.session_id == AnalysisSessions.id)
-        .where(AnalysisSessions.user_id == user_id)
-        .where(AnalysisResults.created_at >= period_start)
-        .where(AnalysisResults.created_at <= period_end)
-        .order_by(AnalysisResults.created_at.asc())
-    )
-    return list(result_db.session.exec(statement).all())
-
-
 @router.post(
     "/weekly",
     response_model=UserSkillReportPublic,
@@ -173,7 +154,7 @@ async def create_weekly_skill_report(
     """Create and persist a report from this user's recent grading evidence."""
     period_end = datetime.now(tz=ZoneInfo("Asia/Seoul"))
     period_start = period_end - timedelta(days=days)
-    results = _recent_reviews(result_db, user_id, period_start, period_end)
+    results = result_db.get_by_user_and_period(user_id, period_start, period_end)
     if not results:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -232,9 +213,13 @@ async def email_weekly_skill_report(
         )
     report = report_db.get(report_id)
     if report is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다."
+        )
     if report.user_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="리포트에 접근할 수 없습니다."
+        )
 
     message = message_db.create(
         CoachMessageCreate(

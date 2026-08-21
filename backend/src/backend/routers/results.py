@@ -16,7 +16,6 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
-from sqlmodel import select
 
 from backend.depends import (
     AnalysisResultDBDep,
@@ -26,7 +25,7 @@ from backend.depends import (
     UserDBDep,
     UserUUIDDep,
 )
-from backend.orm.models import AnalysisResults, AnalysisSessions, UserAnswers
+from backend.orm.models import AnalysisResults
 from backend.schema.analysis_result.response import (
     AnalysisResultPublicWithProblemAnswer,
 )
@@ -91,15 +90,9 @@ def get_result_ranking(
 ) -> ResultRanking:
     """Calculate a live rank without persisting a stale aggregate."""
     problem_id = result.user_answer.analysis_session.problem_id
-    statement = (
-        select(AnalysisResults)
-        .join(UserAnswers, AnalysisResults.answer_id == UserAnswers.id)
-        .join(AnalysisSessions, UserAnswers.session_id == AnalysisSessions.id)
-        .where(AnalysisSessions.problem_id == problem_id)
-    )
     attempts = [
         candidate
-        for candidate in result_db.session.exec(statement).all()
+        for candidate in result_db.get_by_problem(problem_id)
         if candidate.criteria_scores
     ]
     if not attempts:
@@ -297,7 +290,7 @@ async def chat_with_tutor_ws(
                 async for kind, payload in stream_tutor_chat(chat_input):
                     if kind == "chunk":
                         await websocket.send_json({"type": "chunk", "content": payload})
-                    elif kind == "state":
+                    elif kind == "state" and isinstance(payload, TutorChatState):
                         final_state = payload
             except Exception as exc:  # noqa: BLE001
                 await websocket.send_json(

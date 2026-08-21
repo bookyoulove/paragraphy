@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 
 from sqlmodel import Session
 
-from backend.orm.models import CoachMessages, CoachMessageStatus, UserSkillReports
+from backend.orm.crud import CRUDCoachMessage
+from backend.orm.models import CoachMessageStatus, UserSkillReports
 from backend.orm.session import db_engine
 
 
@@ -85,14 +86,13 @@ def _deliver_email(recipient: str, title: str, content: str) -> None:
 def send_weekly_report_email(message_id: UUID) -> None:
     """Background task: deliver a stored message and persist its outcome."""
     with Session(db_engine) as session:
-        message = session.get(CoachMessages, message_id)
+        message_db = CRUDCoachMessage(session)
+        message = message_db.get(message_id)
         if message is None or message.status != CoachMessageStatus.PENDING:
             return
         try:
             _deliver_email(message.recipient_email, message.title, message.content)
-            message.status = CoachMessageStatus.SENT
-            message.sent_at = datetime.now(tz=ZoneInfo("Asia/Seoul"))
         except OSError, RuntimeError, ValueError, smtplib.SMTPException:
-            message.status = CoachMessageStatus.FAILED
-        session.add(message)
-        session.commit()
+            message_db.mark_failed(message_id)
+        else:
+            message_db.mark_sent(message_id, datetime.now(tz=ZoneInfo("Asia/Seoul")))
