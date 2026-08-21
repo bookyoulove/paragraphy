@@ -21,17 +21,21 @@ export default function CustomProblemForm({
   const [showMyProblems, setShowMyProblems] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [searching, setSearching] = useState(false);
+  const [generatingRubric, setGeneratingRubric] = useState(false);
   const [recommendResult, setRecommendResult] = useState(null);
   const [recommendError, setRecommendError] = useState('');
   const patch = (key, value) => setForm((old) => ({ ...old, [key]: value }));
   const generate = async () => {
     if (!form.content.trim()) return setStatus('먼저 문제 본문을 입력하세요.');
-    setStatus('샘플 AI가 채점 기준을 생성하는 중입니다...');
+    setGeneratingRubric(true);
+    setStatus('AI가 채점 기준을 생성하는 중입니다...');
     try {
       patch('rubrics', await onGenerate(form));
       setStatus('생성된 샘플 채점 기준입니다. 수정 후 저장할 수 있습니다.');
     } catch (err) {
       setStatus(err.message || '채점 기준 생성에 실패했습니다.');
+    } finally {
+      setGeneratingRubric(false);
     }
   };
   const create = async () => {
@@ -144,8 +148,8 @@ export default function CustomProblemForm({
       />
       <div className="rubric-row">
         <label className="field-label">채점 기준</label>
-        <button type="button" className="ghost-btn" onClick={generate}>
-          AI로 채점기준 생성
+        <button type="button" className="ghost-btn" onClick={generate} disabled={generatingRubric}>
+          {generatingRubric ? '생성 중...' : 'AI로 채점기준 생성'}
         </button>
       </div>
       <div className="rubric-editor">

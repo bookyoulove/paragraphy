@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useMatch, useNavigate } from 'react-router-dom';
 import { api } from './api/client';
+import AgentProgress from './components/AgentProgress';
 import Brand from './components/Brand';
 import LoginModal from './components/LoginModal';
 import Sidebar from './components/Sidebar';
@@ -17,7 +18,7 @@ import SessionPage from './pages/SessionPage';
 import WeeklyReportDetailPage from './pages/WeeklyReportDetailPage';
 import WeeklyReportsPage from './pages/WeeklyReportsPage';
 
-function AppLayout({ user, setUser, data, actions, error, clearError }) {
+function AppLayout({ user, setUser, data, actions, error, clearError, agentTask }) {
   const navigate = useNavigate();
   const [isWritingNewAnswer, setIsWritingNewAnswer] = useState(false);
   const isSessionPage = useMatch('/sessions/:sessionId');
@@ -64,6 +65,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
             )}
           </div>
         </header>
+        <AgentProgress task={agentTask} />
         <div className="app-shell">
           <Sidebar />
           <main className="main-content">
@@ -143,11 +145,20 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
                   <ComparisonPage user={user} session={data.session} onLoad={actions.loadSession} />
                 }
               />
-              <Route path="/weekly-reports" element={<WeeklyReportsPage user={user} />} />
+              <Route
+                path="/weekly-reports"
+                element={
+                  <WeeklyReportsPage user={user} onCreateReport={actions.createWeeklySkillReport} />
+                }
+              />
               <Route
                 path="/weekly-reports/:reportId"
                 element={
-                  <WeeklyReportDetailPage user={user} onRefreshProblems={actions.refreshProblems} />
+                  <WeeklyReportDetailPage
+                    user={user}
+                    onRefreshProblems={actions.refreshProblems}
+                    onGenerateProblem={actions.generateProblemFromReport}
+                  />
                 }
               />
               <Route path="*" element={<Navigate to="/problems" replace />} />
@@ -164,6 +175,8 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
 function ParagraphyApp() {
   const [user, setUser] = useState(() => api.getStoredUser());
   const [error, setError] = useState('');
+  const [agentTask, setAgentTask] = useState(null);
+  const agentTaskId = useRef(0);
   const data = useAppData(user);
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -189,19 +202,39 @@ function ParagraphyApp() {
       },
     [reportError],
   );
+  const runAgentTask = useCallback(async (label, callback) => {
+    const id = ++agentTaskId.current;
+    setAgentTask({ id, label, startedAt: Date.now() });
+    try {
+      return await callback();
+    } finally {
+      setAgentTask((current) => (current?.id === id ? null : current));
+    }
+  }, []);
+  const trackAgent = useCallback(
+    (label, callback) =>
+      (...args) =>
+        runAgentTask(label, () => callback(...args)),
+    [runAgentTask],
+  );
   const actions = {
     refreshProblems: protect(data.refreshProblems),
     createSession: protect(data.createSession),
     loadSession: protect(data.loadSession),
     saveAnswer: protect(data.saveAnswer),
-    grade: protect(data.grade),
+    grade: trackAgent('채점', protect(data.grade)),
     renameAnswer: protect(data.renameAnswer),
     deleteAnswer: protect(data.deleteAnswer),
     deleteSession: protect(data.deleteSession),
     createProblem: protect(data.createProblem),
     deleteProblem: protect(data.deleteProblem),
-    generateRubric: protect(api.generateRubric),
-    recommendProblems: protect(api.recommendProblems),
+    generateRubric: trackAgent('채점 기준 생성', protect(api.generateRubric)),
+    recommendProblems: trackAgent('문제 추천·생성', protect(api.recommendProblems)),
+    createWeeklySkillReport: trackAgent('주간 리포트 분석', protect(api.createWeeklySkillReport)),
+    generateProblemFromReport: trackAgent(
+      'AI 맞춤 문제 생성',
+      protect(api.generateProblemFromReport),
+    ),
     clear: data.clear,
     login: protect(async ({ username, password }) => setUser(await api.login(username, password))),
   };
@@ -219,6 +252,7 @@ function ParagraphyApp() {
             actions={actions}
             error={error}
             clearError={() => setError('')}
+            agentTask={agentTask}
           />
         }
       />
