@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AnnotatedAnswer from './AnnotatedAnswer';
 import ResultPanel from './ResultPanel';
@@ -34,17 +34,28 @@ export default function Workbench({
   const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
   const [proofFocusId, setProofFocusId] = useState(0);
+  const startedNewRoundRef = useRef(false);
   const latestResult = resultOverride === undefined ? session?.results.at(-1) : resultOverride;
   const result = mode === 'new' ? null : latestResult;
   const editable = mode !== 'view';
   const pendingNewRound = mode === 'new';
   useEffect(() => {
+    if (startNew && !startedNewRoundRef.current) {
+      startedNewRoundRef.current = true;
+      setAnswer('');
+      setName('');
+      setSaved('');
+      setMode('new');
+      setSelectedCorrectionIndex(null);
+      return;
+    }
+    if (!startNew) startedNewRoundRef.current = false;
     setAnswer(startNew ? '' : answerValue);
     setName(startNew ? '' : answerName);
     setSaved('');
     setMode(initialMode(session, readOnly, startNew));
     setSelectedCorrectionIndex(null);
-  }, [session?.id, answerOverride?.id, readOnly, startNew, answerValue, answerName]);
+  }, [session?.id, answerOverride?.id, readOnly, startNew]);
   useEffect(() => {
     onNewAnswerStateChange?.(mode === 'new');
   }, [mode, onNewAnswerStateChange]);
