@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import override
+from typing import Literal, cast, override
 
 from langfuse import observe, propagate_attributes
 from shared.protocol import (
@@ -122,10 +122,11 @@ class TutorChatAgent(TutorChatAgentProtocol):
         )
 
 
+StreamEvent = tuple[Literal["chunk"], str] | tuple[Literal["state"], TutorChatState]
+
+
 @observe(name="tutor-chat-request", as_type="span")
-async def stream_tutor_chat(
-    input: TutorChatInput,
-) -> AsyncIterator[tuple[str, object]]:
+async def stream_tutor_chat(input: TutorChatInput) -> AsyncIterator[StreamEvent]:
     """WS 라우트 전용 스트리밍 진입점.
 
     `TutorChatAgent.run()`(non-streaming)과 같은 그래프를 쓰지만, 조각을 실시간으로
@@ -147,7 +148,7 @@ async def stream_tutor_chat(
             TutorChatState(request=input), stream_mode=["custom", "values"]
         ):
             if mode == "custom":
-                yield "chunk", payload
+                yield "chunk", cast(str, payload)
             elif mode == "values":
                 yield "state", TutorChatState.model_validate(payload)
 

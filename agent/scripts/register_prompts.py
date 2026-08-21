@@ -18,8 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from agent.integrations.langfuse_client import get_langfuse_client  # noqa: E402
-from agent.integrations.prompts import PROMPT_TEMPLATES  # noqa: E402
+from agent.integrations.langfuse_client import get_langfuse_client
+from agent.integrations.prompts import PROMPT_TEMPLATES
 
 
 def main() -> None:

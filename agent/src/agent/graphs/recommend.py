@@ -14,6 +14,7 @@ from shared.schema.recommend import (
 )
 
 from agent.integrations import retrieval
+from agent.integrations.retrieval import RetrievedChunk
 from agent.integrations.writing_prompts import SOURCE, ensure_indexed, load_items
 from agent.model import get_structured_model
 from agent.retry import invoke_with_retry
@@ -49,13 +50,17 @@ def _keyword_scan(keyword: str) -> list[RecommendedProblem]:
     return [
         _to_problem(item)
         for item in items
-        if keyword_norm in item.get("title", "") or keyword_norm in item.get("content", "")
+        if keyword_norm in item.get("title", "")
+        or keyword_norm in item.get("content", "")
     ]
 
 
-def _semantic_search(keyword: str, exclude_labels: set[str]) -> list[RecommendedProblem]:
+def _semantic_search(
+    keyword: str, exclude_labels: set[str]
+) -> list[RecommendedProblem]:
     """chroma 임베딩 기반 최근접 이웃 검색 - 시맨틱(유사어) 계층."""
     ensure_indexed()
+    results: list[RetrievedChunk]
     try:
         results = retrieval.query(keyword, n_results=TOP_K, where={"source": SOURCE})
     except Exception:
@@ -79,7 +84,11 @@ def _semantic_search(keyword: str, exclude_labels: set[str]) -> list[Recommended
                 ),
             )
         )
-    scored.sort(key=lambda pair: pair[0])
+
+    def distance_key(pair: tuple[float, RecommendedProblem]) -> float:
+        return pair[0]
+
+    scored.sort(key=distance_key)
     return [problem for _, problem in scored]
 
 
@@ -120,7 +129,11 @@ def _generate_problem(keyword: str) -> GeneratedProblem:
 
 
 async def run_recommend(request: RecommendRequest) -> RecommendResult:
-    matches = [] if request.force_generate else await asyncio.to_thread(_hybrid_search, request.keyword)
+    matches: list[RecommendedProblem] = (
+        []
+        if request.force_generate
+        else await asyncio.to_thread(_hybrid_search, request.keyword)
+    )
     if matches:
         return RecommendResult(matches=matches, generated=None)
 

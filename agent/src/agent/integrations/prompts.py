@@ -87,7 +87,7 @@ def _fill_template(template: str, variables: dict[str, str]) -> str:
 
     def replace(match: re.Match[str]) -> str:
         key = match.group(1).strip()
-        return str(variables.get(key, match.group(0)))
+        return variables.get(key, match.group(0))
 
     return re.sub(r"\{\{\s*(\w+)\s*\}\}", replace, template)
 

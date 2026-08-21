@@ -56,9 +56,12 @@ class CRUDBase[M: SQLModel, C: SQLModel, U: BaseModel]:
         self.session.refresh(db_obj)
         return db_obj
 
-    def delete(self, id: UUID):
+    def delete(self, id: UUID) -> None:
         db_obj = self.session.get(self.model, id)
         if db_obj is None:
             return
         self.session.delete(db_obj)
         self.session.commit()
+
+    def rollback(self) -> None:
+        self.session.rollback()

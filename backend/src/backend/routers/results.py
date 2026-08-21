@@ -1,4 +1,5 @@
 import base64
+import binascii
 from typing import Annotated
 from uuid import UUID
 
@@ -15,7 +16,6 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 from shared.schema.tutor import TutorChatInput, TutorChatOutput
-from sqlmodel import select
 
 from backend.depends import (
     AnalysisResultDBDep,
@@ -25,7 +25,7 @@ from backend.depends import (
     UserDBDep,
     UserUUIDDep,
 )
-from backend.orm.models import AnalysisResults, AnalysisSessions, UserAnswers
+from backend.orm.models import AnalysisResults
 from backend.schema.analysis_result.response import (
     AnalysisResultPublicWithProblemAnswer,
 )
@@ -90,15 +90,9 @@ def get_result_ranking(
 ) -> ResultRanking:
     """Calculate a live rank without persisting a stale aggregate."""
     problem_id = result.user_answer.analysis_session.problem_id
-    statement = (
-        select(AnalysisResults)
-        .join(UserAnswers, AnalysisResults.answer_id == UserAnswers.id)
-        .join(AnalysisSessions, UserAnswers.session_id == AnalysisSessions.id)
-        .where(AnalysisSessions.problem_id == problem_id)
-    )
     attempts = [
         candidate
-        for candidate in result_db.session.exec(statement).all()
+        for candidate in result_db.get_by_problem(problem_id)
         if candidate.criteria_scores
     ]
     if not attempts:
@@ -215,9 +209,10 @@ async def chat_with_tutor_ws(
 
     try:
         user_name = base64.b64decode(token).decode("utf-8")
-        user = user_db.get_name(user_name)
-    except Exception:
+    except binascii.Error, UnicodeDecodeError:
         user = None
+    else:
+        user = user_db.get_name(user_name)
     if user is None:
         await websocket.send_json(
             {"type": "error", "detail": "인증 토큰이 올바르지 않습니다."}
@@ -295,11 +290,9 @@ async def chat_with_tutor_ws(
                 async for kind, payload in stream_tutor_chat(chat_input):
                     if kind == "chunk":
                         await websocket.send_json({"type": "chunk", "content": payload})
-                    elif kind == "state":
+                    elif kind == "state" and isinstance(payload, TutorChatState):
                         final_state = payload
-            except (
-                Exception
-            ) as exc:  # 그래프 실행 자체가 예외를 던진 경우(설계상 흔치 않음)
+            except Exception as exc:  # noqa: BLE001
                 await websocket.send_json(
                     {"type": "error", "detail": f"응답 생성 실패: {exc}"}
                 )

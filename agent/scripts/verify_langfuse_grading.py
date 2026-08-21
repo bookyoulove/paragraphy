@@ -13,18 +13,23 @@ from __future__ import annotations
 
 import asyncio
 import sys
-import time
+from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from shared.schema.analysis import AnalysisRequest  # noqa: E402
-from shared.schema.problem import ProblemWithRubrics  # noqa: E402
-from shared.schema.rubric import Rubric  # noqa: E402
+from langfuse.api.commons.types.observations_view import ObservationsView
+from shared.schema.analysis import AnalysisRequest
+from shared.schema.problem import ProblemWithRubrics
+from shared.schema.rubric import Rubric
 
-from agent.facade import AnalysisAgent  # noqa: E402
-from agent.integrations.langfuse_client import get_langfuse_client  # noqa: E402
+from agent.facade import AnalysisAgent
+from agent.integrations.langfuse_client import get_langfuse_client
+
+
+def _observation_start_time(observation: ObservationsView) -> datetime:
+    return observation.start_time
 
 
 async def main() -> None:
@@ -42,7 +47,10 @@ async def main() -> None:
             content="로봇세를 도입해야 하는가? 자신의 의견을 논리적으로 제시하는 글을 쓰시오.",
             model_answer=None,
             rubrics=[
-                Rubric(criteria="주장", description="논제에 대한 자신의 주장을 명확하게 제시하는가."),
+                Rubric(
+                    criteria="주장",
+                    description="논제에 대한 자신의 주장을 명확하게 제시하는가.",
+                ),
                 Rubric(
                     criteria="이유/근거의 적절성",
                     description="제시한 이유·근거가 주장과 논리적으로 타당하게 연결되는가.",
@@ -58,7 +66,6 @@ async def main() -> None:
     )
 
     agent = AnalysisAgent()
-    trace_id_holder: dict[str, str] = {}
 
     # facade.AnalysisAgent.run은 @observe로 감싸여 있어, 실행 도중에는
     # get_current_trace_id()로 현재 trace id를 얻을 수 있다. run() 자체는
@@ -70,14 +77,15 @@ async def main() -> None:
     print("criteria_scores:", [(c.criterion, c.score) for c in result.criteria_scores])
 
     client.flush()
-    time.sleep(6)
+    await asyncio.sleep(6)
 
     traces = client.api.trace.list(name="grading-request", limit=5)
     matched = next((t for t in traces.data if t.session_id == session_id), None)
     if matched is None:
-        raise SystemExit("방금 실행한 trace를 찾지 못했습니다 (인제스트 지연일 수 있음).")
+        raise SystemExit(
+            "방금 실행한 trace를 찾지 못했습니다 (인제스트 지연일 수 있음)."
+        )
 
-    trace_id_holder["id"] = matched.id
     print("\n=== Langfuse trace ===")
     print("trace_id:", matched.id)
     print("name:", matched.name)
@@ -88,7 +96,7 @@ async def main() -> None:
 
     full_trace = client.api.trace.get(matched.id)
     print("\n=== span 순서 (name, type, parent) ===")
-    for obs in sorted(full_trace.observations, key=lambda o: o.start_time):
+    for obs in sorted(full_trace.observations, key=_observation_start_time):
         print(f"- {obs.name} [{obs.type}] parent={obs.parent_observation_id}")
 
 
