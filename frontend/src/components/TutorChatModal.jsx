@@ -11,7 +11,7 @@ const gradedGreeting = {
   text: '채점이 완료되었습니다! 궁금한 점을 Tutor에게 물어보세요.',
 };
 
-export default function TutorChatModal({ session }) {
+export default function TutorChatModal({ session, result: resultOverride }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([waitingMessage]);
   const [question, setQuestion] = useState('');
@@ -20,7 +20,7 @@ export default function TutorChatModal({ session }) {
   const [waiting, setWaiting] = useState(false);
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const result = session?.results.at(-1);
+  const result = resultOverride ?? session?.results.at(-1);
 
   useEffect(() => {
     setMessages([result ? gradedGreeting : waitingMessage]);
@@ -194,8 +194,13 @@ export default function TutorChatModal({ session }) {
                 </div>
               )}
               {messages.map((message, index) => (
-                <div className={`chat-box ${boxClass(message.role)}`} key={message.id ?? `${message.role}-${index}`}>
-                  <div className={`chat-badge ${badgeClass(message.role)}`}>{badgeLabel(message.role)}</div>
+                <div
+                  className={`chat-box ${boxClass(message.role)}`}
+                  key={message.id ?? `${message.role}-${index}`}
+                >
+                  <div className={`chat-badge ${badgeClass(message.role)}`}>
+                    {badgeLabel(message.role)}
+                  </div>
                   <div className="chat-msg">
                     {message.text}
                     {message.streaming && <span className="chat-caret" />}

@@ -21,7 +21,17 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
   const navigate = useNavigate();
   const [isWritingNewAnswer, setIsWritingNewAnswer] = useState(false);
   const isSessionPage = useMatch('/sessions/:sessionId');
+  const historyAnswerMatch = useMatch('/history/:sessionId/answers/:answerId');
   const isProblemsPage = useMatch('/problems');
+  const historyAnswer =
+    historyAnswerMatch && String(data.session?.id) === historyAnswerMatch.params.sessionId
+      ? data.session?.answers?.find((item) => item.id === historyAnswerMatch.params.answerId)
+      : null;
+  const tutorResult = historyAnswerMatch
+    ? historyAnswer?.result
+    : isSessionPage && !isWritingNewAnswer && data.session?.answerSubmitted
+      ? data.session.results.at(-1)
+      : null;
   const logout = () => {
     api.clearToken();
     actions.clear();
@@ -145,11 +155,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
           </main>
         </div>
       </div>
-      {user &&
-        isSessionPage &&
-        !isWritingNewAnswer &&
-        data.session?.answerSubmitted &&
-        data.session?.results.length > 0 && <TutorChatModal session={data.session} />}
+      {user && tutorResult && <TutorChatModal session={data.session} result={tutorResult} />}
       {!user && <LoginModal onLogin={actions.login} />}
     </>
   );

@@ -101,6 +101,7 @@ export default function Workbench({
       const savedSession = await onSave(answer, { createNew: pendingNewRound, name });
       await onGrade(savedSession);
       setMode('view');
+      navigate(`/history/${savedSession.id}/answers/${savedSession.answerId}`, { replace: true });
     } catch (err) {
       setSaved(err.message || '채점 요청에 실패했습니다.');
     } finally {
