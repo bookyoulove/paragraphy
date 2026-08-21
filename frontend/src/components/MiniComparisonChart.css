@@ -1,0 +1,77 @@
+.mini-comparison-chart {
+    margin-bottom: 12px;
+    padding: 10px 10px 8px;
+    border: 1px solid #dfe6ee;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.mini-comparison-chart-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.mini-comparison-chart-header strong {
+    color: var(--brand);
+    font-size: 12px;
+}
+
+.mini-comparison-chart-header span {
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.mini-comparison-chart-canvas {
+    width: 100%;
+    height: 132px;
+}
+
+.mini-comparison-tooltip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 110px;
+    padding: 7px 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 12px rgba(20, 42, 74, 0.12);
+    color: var(--text);
+    font-size: 10px;
+}
+
+.mini-comparison-tooltip strong {
+    margin-bottom: 2px;
+    font-size: 11px;
+}
+
+.mini-comparison-tooltip span {
+    color: var(--muted);
+}
+
+.mini-comparison-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.3;
+}
+
+.mini-comparison-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+}
+
+.mini-comparison-legend i {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 auto;
+    border-radius: 2px;
+}

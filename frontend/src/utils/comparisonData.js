@@ -63,7 +63,7 @@ export function buildComparisonModel(results = [], { truncate = true, selectedId
       .map((column, index) => (column.isGap ? { index, column } : null))
       .filter(Boolean)
       .reverse();
-    chartGapRows.forEach(({ index, column }) => {
+    chartGapRows.forEach(({ index }) => {
       const gapRow = { attempt: '…', isGap: true, total: null };
       criteria.forEach((label) => {
         gapRow[label] = null;
@@ -73,5 +73,19 @@ export function buildComparisonModel(results = [], { truncate = true, selectedId
     });
   }
 
-  return { displayed, columns, criteria, rows, chartData, hiddenMiddleCount };
+  const maxTotalScore = Math.max(
+    criteria.length * 5,
+    ...displayed.map((result) => result.totalMax ?? 0),
+    1,
+  );
+
+  return {
+    displayed,
+    columns,
+    criteria,
+    rows,
+    chartData,
+    hiddenMiddleCount,
+    maxTotalScore,
+  };
 }

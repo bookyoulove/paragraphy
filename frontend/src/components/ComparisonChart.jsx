@@ -24,7 +24,9 @@ function formatTooltip(value, name) {
 }
 
 export default function ComparisonChart({ results, truncate = true }) {
-  const { criteria, chartData, hiddenMiddleCount } = buildComparisonModel(results, { truncate });
+  const { criteria, chartData, hiddenMiddleCount, maxTotalScore } = buildComparisonModel(results, {
+    truncate,
+  });
 
   return (
     <section className="comparison-chart-card" aria-labelledby="comparison-chart-title">
@@ -42,7 +44,11 @@ export default function ComparisonChart({ results, truncate = true }) {
           <ComposedChart data={chartData} margin={{ top: 12, right: 0, bottom: 12, left: 0 }}>
             <CartesianGrid stroke="#dfe6ee" strokeDasharray="3 3" />
             <XAxis dataKey="attempt" interval={0} angle={-20} textAnchor="end" height={58} />
-            <YAxis width={COMPARISON_LABEL_WIDTH} allowDecimals={false} />
+            <YAxis
+              width={COMPARISON_LABEL_WIDTH}
+              domain={[0, maxTotalScore]}
+              allowDecimals={false}
+            />
             <Tooltip formatter={formatTooltip} />
             <Legend formatter={formatLegend} />
             {hiddenMiddleCount > 0 && (
