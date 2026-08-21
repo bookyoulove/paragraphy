@@ -329,6 +329,9 @@ export const api = {
   async getSkillReport(reportId) {
     return request(`/skill-reports/${reportId}`);
   },
+  async createWeeklySkillReport() {
+    return request('/skill-reports/weekly', { method: 'POST' });
+  },
   async sendSkillReportEmail(reportId, recipientEmail) {
     return request(`/skill-reports/${reportId}/email`, {
       method: 'POST',

@@ -1832,6 +1832,37 @@ textarea {
   font-size: 13px;
 }
 
+.weekly-report-error {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fff5f5;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.weekly-report-empty {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 9px;
+  padding: 54px 20px;
+  text-align: center;
+}
+
+.weekly-report-empty p {
+  margin: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.weekly-report-empty span {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .page-eyebrow {
   margin: 0 0 7px;
   color: var(--brand);
