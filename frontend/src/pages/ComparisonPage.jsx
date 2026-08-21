@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CompareTable from '../components/CompareTable';
+import ComparisonChart from '../components/ComparisonChart';
 
 export default function ComparisonPage({ user, session, onLoad }) {
   const { sessionId } = useParams();
@@ -20,10 +21,13 @@ export default function ComparisonPage({ user, session, onLoad }) {
         </div>
       </div>
       {session.results.length > 1 ? (
-        <CompareTable
-          results={session.results}
-          onSelectRound={(answerId) => navigate(`/history/${sessionId}/answers/${answerId}`)}
-        />
+        <>
+          <ComparisonChart results={session.results} />
+          <CompareTable
+            results={session.results}
+            onSelectRound={(answerId) => navigate(`/history/${sessionId}/answers/${answerId}`)}
+          />
+        </>
       ) : (
         <div className="panel-empty">아직 2회 이상 채점된 답안이 없습니다.</div>
       )}

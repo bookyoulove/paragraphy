@@ -1,7 +1,8 @@
-import { formatWrittenAt, selectDisplayedResults } from '../utils/formatters';
+import { formatWrittenAt } from '../utils/formatters';
+import { buildComparisonModel } from '../utils/comparisonData';
 
 export default function CompareTable({ results, onSelectRound }) {
-  const displayed = selectDisplayedResults(results);
+  const { displayed, rows } = buildComparisonModel(results);
   return (
     <div className="compare-table-wrap">
       <table className="compare-table">
@@ -27,6 +28,16 @@ export default function CompareTable({ results, onSelectRound }) {
           </tr>
         </thead>
         <tbody>
+          {rows.map((row) => (
+            <tr className="compare-criteria-row" key={row.label}>
+              <td>{row.label}</td>
+              {row.values.map((score, index) => (
+                <td key={`${row.label}-${displayed[index].id}`}>
+                  {score ? `${score.value} / ${score.maxScore}` : '—'}
+                </td>
+              ))}
+            </tr>
+          ))}
           <tr className="compare-total">
             <td>총점</td>
             {displayed.map((item) => (
