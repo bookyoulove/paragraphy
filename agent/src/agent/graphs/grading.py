@@ -6,10 +6,12 @@ import logging
 from collections.abc import Mapping, Sequence
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
 from langgraph.graph import END, START, StateGraph
 from shared.schema.rubric import Rubric
 
 from agent.integrations import retrieval
+from agent.integrations.prompts import get_prompt
 from agent.integrations.spelling import (
     SpellingIntegrationError,
     check_spelling,
@@ -48,28 +50,14 @@ def _build_prompt(state: GradingState) -> str:
     rubric_text = _format_rubric(state.rubric_items)
     model_answer = problem.model_answer or "(제공되지 않음)"
     rag_block = f"\n\n참고 자료:\n{state.rag_context}" if state.rag_context else ""
-    return f"""너는 대입 논술 답안을 채점하는 채점 에이전트다. 채점 기준에 따라 학생 답안을
-항목별 1~5점으로 평가하고, 각 점수의 구체적인 근거와 학생이 스스로 개선할 수 있는 방향을
-제시하라. 개선 방향은 완성된 답안이나 문단을 대신 쓰지 말고 작성 방향만 안내하라.
-
-문제:
-{problem.content}
-
-모범답안(참고용):
-{model_answer}
-
-채점 기준:
-{rubric_text}
-{rag_block}
-
-학생 답안:
-{state.request.user_answer}
-
-채점 기준과 같은 순서와 개수로 결과를 작성하라. criterion은 기준의 이름을 그대로 사용하라.
-각 채점 기준마다 먼저 학생 답안에서 발견한 근거(rationale)와 개선 방향(improvement)을 작성한 뒤,
-그 판단을 바탕으로 마지막에 점수(score)를 결정하라. 구조화 출력 필드도 criterion, rationale,
-improvement, score, max_score 순서를 따른다. 참고 자료는 채점 판단의 근거로만 사용하고
-학생 답안과 혼동하지 마라."""
+    return get_prompt(
+        "grading-agent",
+        problem_content=problem.content,
+        model_answer=model_answer,
+        rubric_text=rubric_text,
+        rag_block=rag_block,
+        user_answer=state.request.user_answer,
+    )
 
 
 type RawRubric = Rubric | RubricItem | Mapping[str, str | None]
@@ -115,6 +103,7 @@ def _normalise_result(
     return scores, total_score, result.overall_comment
 
 
+@observe(name="grading:supervisor", as_type="span")
 def supervisor_node(state: GradingState) -> dict[str, object]:
     rubric_items = _normalise_rubrics(state.request.problem.rubrics)
     if not rubric_items:
@@ -128,6 +117,7 @@ def _route_after_supervisor(state: GradingState) -> str:
     return END if state.error else "guardrail_input"
 
 
+@observe(name="grading:guardrail_input", as_type="span")
 def guardrail_input_node(state: GradingState) -> dict[str, object]:
     result = guardrails.check_input_safety(state.request.user_answer)
     if result.flagged:
@@ -139,6 +129,7 @@ def _route_after_guardrail_input(state: GradingState) -> str:
     return END if state.error else "rag_agent"
 
 
+@observe(name="grading:rag_agent", as_type="span")
 def rag_agent_node(state: GradingState) -> dict[str, str]:
     problem = state.request.problem
     query_text = (
@@ -169,6 +160,7 @@ def rag_agent_node(state: GradingState) -> dict[str, str]:
     return {"rag_context": context}
 
 
+@observe(name="grading:grammar_agent", as_type="span")
 def grammar_agent_node(state: GradingState) -> dict[str, object]:
     essay_text = state.request.user_answer
     try:
@@ -185,6 +177,7 @@ def grammar_agent_node(state: GradingState) -> dict[str, object]:
         }
 
 
+@observe(name="grading:grading_agent", as_type="span")
 def grading_agent_node(state: GradingState) -> dict[str, object]:
     base_prompt = _build_prompt(state)
 
@@ -223,6 +216,7 @@ def grading_agent_node(state: GradingState) -> dict[str, object]:
         }
 
 
+@observe(name="grading:guardrail_output", as_type="span")
 def guardrail_output_node(state: GradingState) -> dict[str, object]:
     if state.error:
         return {}

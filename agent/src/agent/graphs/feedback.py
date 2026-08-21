@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
 from langgraph.graph import END, START, StateGraph
 
 from agent.integrations import retrieval
+from agent.integrations.prompts import get_prompt
 from agent.integrations.spelling import (
     SpellingIntegrationError,
     check_spelling,
@@ -29,6 +31,7 @@ RAG_TOP_K = 3
 logger = logging.getLogger(__name__)
 
 
+@observe(name="feedback:guardrail_input", as_type="span")
 def guardrail_input_node(state: FeedbackState) -> dict[str, object]:
     result = guardrails.check_input_safety(state.request.essay_text)
     if result.flagged:
@@ -40,11 +43,11 @@ def _route_after_guardrail_input(state: FeedbackState) -> str:
     return END if state.error else "spelling_agent"
 
 
+@observe(name="feedback:spelling_agent", as_type="span")
 def spelling_agent_node(state: FeedbackState) -> dict[str, object]:
     essay_text = state.request.essay_text
     try:
         result = check_spelling(essay_text)
-        print(result)
         return {
             "grammar_result": result,
             "revised_text": result.revised,
@@ -78,18 +81,15 @@ def _build_polish_prompt(state: FeedbackState, rag_context: str) -> str:
         or "(맞춤법 교정 사항 없음)"
     )
     rag_block = f"\n\n참고 자료:\n{rag_context}" if rag_context else ""
-    return f"""너는 논술 답안의 문장과 표현을 다듬는 첨삭 에이전트다. 맞춤법/띄어쓰기가 아니라
-문장 구조, 어휘 선택, 논증 효과 관점에서 실제로 필요한 윤문 제안만 만들어라. 문제가 없으면
-제안 목록을 비워라. 학생 답안을 완성해 주지 말고, 스스로 고칠 수 있는 방향을 제시하라.
-
-원문:
-{state.request.essay_text}
-
-이미 처리된 맞춤법 교정(중복 지적 금지):
-{corrections_text}
-{rag_block}"""
+    return get_prompt(
+        "feedback-agent",
+        essay_text=state.request.essay_text,
+        corrections_text=corrections_text,
+        rag_block=rag_block,
+    )
 
 
+@observe(name="feedback:polish_agent", as_type="span")
 def polish_agent_node(state: FeedbackState) -> dict[str, object]:
     try:
         rag_results = retrieval.query(RAG_QUERY, n_results=RAG_TOP_K)

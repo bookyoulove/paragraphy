@@ -134,7 +134,12 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
                 }
               />
               <Route path="/weekly-reports" element={<WeeklyReportsPage user={user} />} />
-              <Route path="/weekly-reports/:reportId" element={<WeeklyReportDetailPage user={user} onRefreshProblems={actions.refreshProblems} />} />
+              <Route
+                path="/weekly-reports/:reportId"
+                element={
+                  <WeeklyReportDetailPage user={user} onRefreshProblems={actions.refreshProblems} />
+                }
+              />
               <Route path="*" element={<Navigate to="/problems" replace />} />
             </Routes>
           </main>
@@ -144,9 +149,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError }) {
         isSessionPage &&
         !isWritingNewAnswer &&
         data.session?.answerSubmitted &&
-        data.session?.results.length > 0 && (
-          <TutorChatModal session={data.session} onChat={api.chat} onLoadHistory={api.getChat} />
-        )}
+        data.session?.results.length > 0 && <TutorChatModal session={data.session} />}
       {!user && <LoginModal onLogin={actions.login} />}
     </>
   );
