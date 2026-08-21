@@ -1,4 +1,6 @@
 export default function ProblemPicker({ problems, selectedId, onSelect, onRefresh }) {
+  const personalizedProblems = problems.filter((problem) => problem.raw.source_report_id);
+  const regularProblems = problems.filter((problem) => !problem.raw.source_report_id);
   return (
     <div className="picker-view">
       <div className="picker-view-header">
@@ -12,8 +14,19 @@ export default function ProblemPicker({ problems, selectedId, onSelect, onRefres
           문제 새로고침
         </button>
       </div>
+      {personalizedProblems.length > 0 && (
+        <section className="personalized-problem-section">
+          <div className="personalized-problem-heading">AI 맞춤 문제</div>
+          {personalizedProblems.map((problem) => (
+            <button key={problem.id} className="problem-card personalized-problem-card" onClick={() => onSelect(problem)}>
+              <span className="card-title">{problem.title}</span>
+              <span className="card-meta">최근 분석 리포트를 바탕으로 취약한 부분을 보완하도록 만든 문제입니다.</span>
+            </button>
+          ))}
+        </section>
+      )}
       <div className="problem-list">
-        {problems.map((problem) => (
+        {regularProblems.map((problem) => (
           <button
             key={problem.id}
             className={`problem-card ${selectedId === problem.id ? 'selected' : ''}`}

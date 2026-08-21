@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class RecommendRequest(BaseModel):
     keyword: str
+    force_generate: bool = False
 
 
 class RecommendedProblem(BaseModel):

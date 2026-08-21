@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CompareTable from './CompareTable';
 import ProofList from './ProofList';
 import ScoreCard from './ScoreCard';
 
-export default function ResultPanel({ sessionId, result, results }) {
+export default function ResultPanel({ sessionId, result, results, selectedCorrectionIndex, proofFocusId, onSelectCorrection }) {
   const [tab, setTab] = useState('grade');
   const navigate = useNavigate();
+  useEffect(() => {
+    if (proofFocusId) setTab('proof');
+  }, [proofFocusId]);
   return (
     <aside className="right-panel">
       <div className="tabs">
@@ -53,7 +56,11 @@ export default function ResultPanel({ sessionId, result, results }) {
               <div className="proof-text">채점 후 문법 및 첨삭 항목이 표시됩니다.</div>
             </div>
           ) : (
-            <ProofList errors={result.errors} />
+            <ProofList
+              errors={result.errors}
+              selectedIndex={selectedCorrectionIndex}
+              onSelect={onSelectCorrection}
+            />
           )}
         </div>
       </div>

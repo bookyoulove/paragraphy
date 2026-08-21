@@ -85,6 +85,37 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
   사용합니다. feedback graph가 생성한 실제 결과를 최종 AnalysisResult에 연결하는
   것은 별도의 후속 작업입니다.
 
+## Observability & 프롬프트 관리 (Langfuse)
+
+`.env`에 아래 키가 있으면 자동으로 활성화됩니다(없으면 트레이싱/프롬프트 조회를
+조용히 건너뛰고 로컬 fallback 프롬프트로 동작 -- fail-open):
+
+- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`
+- `LANGFUSE_BASE_URL`(또는 `LANGFUSE_HOST`)
+
+구성 요소:
+
+- `integrations/langfuse_client.py` -- 프로세스 시작 시 Langfuse 클라이언트를 한 번
+  구성합니다. `model.py`가 여기의 `is_enabled`를 보고 LangChain `CallbackHandler`를
+  모델에 바인딩합니다(`get_chat_model`/`get_structured_model` 둘 다 -- 특히
+  `with_structured_output()`은 앞서 바인딩한 콜백을 상속하지 않으므로 별도로 다시
+  바인딩합니다). 각 그래프 노드 함수에는 `@observe()`를 붙여 개별 span으로
+  기록됩니다.
+- `facade.py`의 각 어댑터(`AnalysisAgent`/`RubricAgent`/`TutorChatAgent`)는
+  `@observe()`로 trace 루트를 만들고, `propagate_attributes()`로 요청에 실려온
+  `user_identifier`/`session_id`를 trace의 `user_id`/`session_id`로 붙입니다 --
+  Langfuse 대시보드에서 사용자ㆍ세션별로 trace를 필터링할 수 있습니다. (`feedback`
+  그래프는 아직 facade/protocol에 연결되지 않아 이 트레이스 그룹핑이 없습니다 --
+  연결할 때 같은 패턴을 적용하면 됩니다.)
+- `integrations/prompts.py` -- 채점/첨삭/루브릭/Tutor Chat 시스템 프롬프트를
+  `langfuse.get_prompt(name)`으로 조회합니다. 로컬 `PROMPT_TEMPLATES`가 fallback이자
+  최초 업로드 소스입니다.
+- `scripts/register_prompts.py` -- `PROMPT_TEMPLATES`를 Langfuse Prompt Management에
+  업로드/갱신합니다(재실행 시 새 버전 생성). `.env` 설정 후 한 번 실행하세요:
+  `uv run --package agent python agent/scripts/register_prompts.py`
+- `scripts/verify_langfuse_grading.py` -- 실제 채점 요청 1건을 실행하고 Langfuse
+  trace(순서대로의 span, user_id/session_id)를 API로 조회해 검증합니다.
+
 ## 확인이 필요한 항목
 
 - 실제 `BAREUN_API_KEY`로 `check_spelling()`을 한 번 호출해 protobuf → Pydantic

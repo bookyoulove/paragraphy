@@ -1,4 +1,12 @@
-export default function ProofList({ errors }) {
+import { useEffect, useRef } from 'react';
+
+export default function ProofList({ errors, selectedIndex = null, onSelect = () => {} }) {
+  const selectedRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedIndex !== null) selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selectedIndex]);
+
   if (!errors.length) {
     return (
       <div className="proof-box">
@@ -12,7 +20,13 @@ export default function ProofList({ errors }) {
       <div className="proof-count">감지된 오류 {errors.length}건</div>
       <div className="proof-list">
         {errors.map((item, index) => (
-          <div className="proof-box" key={`${item.before}-${index}`}>
+          <button
+            type="button"
+            className={`proof-box proof-box-selectable ${selectedIndex === index ? 'active' : ''}`}
+            key={`${item.before}-${index}`}
+            ref={selectedIndex === index ? selectedRef : null}
+            onClick={() => onSelect(index)}
+          >
             <div className="proof-tag warning">{item.type}</div>
             <div className="proof-text">
               <del>{item.before}</del> → {item.after}
@@ -33,7 +47,7 @@ export default function ProofList({ errors }) {
                 </ul>
               </div>
             )}
-          </div>
+          </button>
         ))}
       </div>
     </>

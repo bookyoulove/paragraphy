@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 const AUTH_STORAGE_KEY = 'paragraphy.auth';
 
 function getAuthStorage() {
@@ -320,6 +321,28 @@ export const api = {
   async getSession(sessionId) {
     return toSession(await request(`/sessions/${sessionId}`));
   },
+  async getRanking(resultId) {
+    return request(`/results/${resultId}/ranking`);
+  },
+  async getSkillReports() {
+    return request('/skill-reports/');
+  },
+  async getSkillReport(reportId) {
+    return request(`/skill-reports/${reportId}`);
+  },
+  async createWeeklySkillReport() {
+    return request('/skill-reports/weekly', { method: 'POST' });
+  },
+  async sendSkillReportEmail(reportId, recipientEmail) {
+    return request(`/skill-reports/${reportId}/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient_email: recipientEmail }),
+    });
+  },
+  async generateProblemFromReport(reportId) {
+    return toProblem(await request(`/skill-reports/${reportId}/generated-problem`, { method: 'POST' }));
+  },
   async getChat(resultId) {
     try {
       const messages = await request(`/results/${resultId}/chat`);
@@ -341,5 +364,11 @@ export const api = {
     });
     if (response.error) throw new Error(response.error);
     return response.reply;
+  },
+  // 스트리밍 + 가드레일 Tutor Chat WS 엔드포인트. 브라우저 WebSocket 핸드셰이크는
+  // 커스텀 헤더를 못 실으므로 토큰을 쿼리 파라미터로 붙인다(서버가 동일하게 파싱).
+  chatSocketUrl(resultId) {
+    const token = accessToken ?? '';
+    return `${WS_BASE_URL}/results/${resultId}/chat/ws?token=${encodeURIComponent(token)}`;
   },
 };

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AnnotatedAnswer from './AnnotatedAnswer';
 import ResultPanel from './ResultPanel';
 import RubricModal from './RubricModal';
 
@@ -31,16 +32,30 @@ export default function Workbench({
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
   const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
+  const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
+  const [proofFocusId, setProofFocusId] = useState(0);
+  const startedNewRoundRef = useRef(false);
   const latestResult = resultOverride === undefined ? session?.results.at(-1) : resultOverride;
   const result = mode === 'new' ? null : latestResult;
   const editable = mode !== 'view';
   const pendingNewRound = mode === 'new';
   useEffect(() => {
+    if (startNew && !startedNewRoundRef.current) {
+      startedNewRoundRef.current = true;
+      setAnswer('');
+      setName('');
+      setSaved('');
+      setMode('new');
+      setSelectedCorrectionIndex(null);
+      return;
+    }
+    if (!startNew) startedNewRoundRef.current = false;
     setAnswer(startNew ? '' : answerValue);
     setName(startNew ? '' : answerName);
     setSaved('');
     setMode(initialMode(session, readOnly, startNew));
-  }, [session?.id, answerOverride?.id, readOnly, startNew, answerValue, answerName]);
+    setSelectedCorrectionIndex(null);
+  }, [session?.id, answerOverride?.id, readOnly, startNew]);
   useEffect(() => {
     onNewAnswerStateChange?.(mode === 'new');
   }, [mode, onNewAnswerStateChange]);
@@ -124,14 +139,25 @@ export default function Workbench({
         <div className="word-counter">{answer.trim().length}자</div>
       </div>
       <div className="highlight-wrap">
-        <textarea
-          className="answer-input"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          placeholder="여기에 답안을 작성하세요."
-          readOnly={!editable}
-          spellCheck="false"
-        />
+        {!editable && result ? (
+          <AnnotatedAnswer
+            text={answer}
+            corrections={result.errors}
+            selectedIndex={selectedCorrectionIndex}
+            onSelect={(index) => {
+              setSelectedCorrectionIndex(index);
+              if (index !== null) setProofFocusId((value) => value + 1);
+            }}
+          />
+        ) : (
+          <textarea
+            className="answer-input"
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            placeholder="여기에 답안을 작성하세요."
+            spellCheck="false"
+          />
+        )}
       </div>
       {editable ? (
         <div className="answer-actions">
@@ -177,7 +203,14 @@ export default function Workbench({
         <section className="column-slot">{result || readOnly ? editor : detail}</section>
         <section className="column-slot">
           {result || readOnly ? (
-            <ResultPanel sessionId={session.id} result={result} results={session.results} />
+            <ResultPanel
+              sessionId={session.id}
+              result={result}
+              results={session.results}
+              selectedCorrectionIndex={selectedCorrectionIndex}
+              proofFocusId={proofFocusId}
+              onSelectCorrection={setSelectedCorrectionIndex}
+            />
           ) : (
             editor
           )}

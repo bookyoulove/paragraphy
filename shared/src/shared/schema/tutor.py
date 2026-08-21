@@ -10,6 +10,9 @@ class ChatMessage(SQLModel):
 class TutorChatInput(BaseModel):
     context_text: str
     history: list[ChatMessage] = Field(default_factory=list)
+    # Langfuse trace 메타데이터용 (선택, 관측 전용).
+    user_identifier: str | None = None
+    session_id: str | None = None
 
 
 class TutorChatOutput(BaseModel):

@@ -24,6 +24,9 @@ class AgentSettings:
     ai_cloud_api_key: str | None
     ai_cloud_base_url: str | None
     ai_cloud_model: str
+    langfuse_public_key: str | None
+    langfuse_secret_key: str | None
+    langfuse_base_url: str | None
 
 
 settings = AgentSettings(
@@ -40,4 +43,7 @@ settings = AgentSettings(
         or os.getenv("RUBRIC_MODEL_NAME")
         or "anthropic/claude-sonnet-5"
     ),
+    langfuse_public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+    langfuse_secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+    langfuse_base_url=os.getenv("LANGFUSE_BASE_URL") or os.getenv("LANGFUSE_HOST"),
 )

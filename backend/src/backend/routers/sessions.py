@@ -87,7 +87,7 @@ def create_session(
     except IntegrityError:
         # The unique constraint handles two simultaneous requests. Return the
         # session created by the competing request instead of leaking a 500.
-        analysis_session_db.session.rollback()
+        analysis_session_db.rollback()
         existing = analysis_session_db.get_by_user_and_problem(
             user_id, request.problem_id
         )
@@ -234,24 +234,32 @@ async def analysis_answer(
             detail="Answer not found.",
         )
     res = await agent.run(
-        AnalysisRequest(user_answer=user_answer.user_answer, problem=session.problem)
+        AnalysisRequest(
+            user_answer=user_answer.user_answer,
+            problem=session.problem,
+            user_identifier=str(session.user_id),
+            session_id=str(session_id),
+        )
     )
 
     if user_answer.analysis_result:
-        analysis_result_db.update(
+        updated = analysis_result_db.update(
             user_answer.analysis_result.id,
-            AnalysisResultUpdate(
-                **res.model_dump(),
-            ),
+            AnalysisResultUpdate(**res.model_dump()),
         )
-        return user_answer.analysis_result
+        if updated is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Analysis result not found.",
+            )
+        return AnalysisResultPublic.model_validate(updated)
     res_db = analysis_result_db.create(
         AnalysisResultCreate(
             answer_id=answer_id,
             **res.model_dump(),
         )
     )
-    return res_db
+    return AnalysisResultPublic.model_validate(res_db)
 
 
 @router.get("/", response_model=list[AnalysisSessionPublicWithProblemAnswer])
