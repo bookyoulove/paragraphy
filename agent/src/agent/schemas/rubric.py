@@ -18,6 +18,5 @@ class RubricGenerationOutput(BaseModel):
 
 class RubricState(BaseModel):
     request: RubricGenerationRequest
-    rag_context: str = ""
     rubrics: list[RubricSuggestion] = Field(default_factory=list)
     error: str | None = None

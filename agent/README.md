@@ -25,7 +25,6 @@ structured output용 세부 모델은 이 패키지의 `schemas/`에 둡니다. 
 ```python
 await grading_app.ainvoke({"request": analysis_request})
 await rubric_app.ainvoke({"request": rubric_generation_request})
-await feedback_app.ainvoke({"request": FeedbackInput(essay_text=text)})
 ```
 
 모델 게이트웨이는 OpenAI-compatible API로 연결합니다. `.env`에 다음을 설정합니다.
@@ -85,9 +84,8 @@ MAE 기준 정렬 표가 포함됩니다. Plotly의 hover·zoom·pan·범례 토
 
 ## bareunpy와 `shared.schema.grammar`의 호환성 기록
 
-현재 feedback graph는 bareunpy 응답을 `shared.schema.grammar.GrammarResult`로
-변환하고, grading output도 같은 타입을 계약으로 사용합니다. 다만 grading graph와
-feedback graph를 하나의 실행 경로로 합치는 작업은 아직 별도 과제입니다.
+현재 bareunpy 응답은 `shared.schema.grammar.GrammarResult`로 변환하고,
+서버의 grading graph에서 실제 문법 검사 결과로 사용합니다.
 
 bareunpy protobuf 응답의 `CorrectErrorResponse` 필드는 `GrammarResult`와 거의
 같습니다.
@@ -120,10 +118,8 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
 - `agent.schemas.grading.CriterionScore.max_score`와 `total_score`도 내부 채점
   상태용입니다. `shared.schema.analysis.CriteriaScore`에는 `max_score`가 없으므로
   변환 시 제외하고, 총점은 현재 그래프 상태에만 둡니다.
-- `shared.schema.analysis.AnalysisResult.grammar_result`는 필수이므로, 문법 그래프가
-  채점 그래프에 아직 결합되지 않은 현재 단계에서는 `GrammarResult`의 빈 호환값을
-  사용합니다. feedback graph가 생성한 실제 결과를 최종 AnalysisResult에 연결하는
-  것은 별도의 후속 작업입니다.
+- `shared.schema.analysis.AnalysisResult.grammar_result`는 필수이며, grading graph의
+  문법 검사 노드가 생성한 실제 결과를 최종 AnalysisResult에 연결합니다.
 
 ## Observability & 프롬프트 관리 (Langfuse)
 
@@ -141,12 +137,11 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
   `with_structured_output()`은 앞서 바인딩한 콜백을 상속하지 않으므로 별도로 다시
   바인딩합니다). 각 그래프 노드 함수에는 `@observe()`를 붙여 개별 span으로
   기록됩니다.
-- `facade.py`의 각 어댑터(`AnalysisAgent`/`RubricAgent`/`TutorChatAgent`)는
-  `@observe()`로 trace 루트를 만들고, `propagate_attributes()`로 요청에 실려온
-  `user_identifier`/`session_id`를 trace의 `user_id`/`session_id`로 붙입니다 --
-  Langfuse 대시보드에서 사용자ㆍ세션별로 trace를 필터링할 수 있습니다. (`feedback`
-  그래프는 아직 facade/protocol에 연결되지 않아 이 트레이스 그룹핑이 없습니다 --
-  연결할 때 같은 패턴을 적용하면 됩니다.)
+- `facade.py`의 각 어댑터(`AnalysisAgent`/`RubricAgent`/`TutorChatAgent`/
+  `RecommendAgent`/`SkillReportAgent`)는 `@observe()`로 trace 루트를 만들고,
+  `propagate_attributes()`로 요청에 실려온 `user_identifier`/`session_id`를 trace의
+  `user_id`/`session_id`로 붙입니다 -- Langfuse 대시보드에서 사용자ㆍ세션별로 trace를
+  필터링할 수 있습니다.
 - `integrations/prompts.py` -- 채점/첨삭/루브릭/Tutor Chat 시스템 프롬프트를
   `langfuse.get_prompt(name)`으로 조회합니다. 로컬 `PROMPT_TEMPLATES`가 fallback이자
   최초 업로드 소스입니다.
@@ -160,8 +155,8 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
 
 - 실제 `BAREUN_API_KEY`로 `check_spelling()`을 한 번 호출해 protobuf → Pydantic
   변환을 통합 테스트해야 합니다. 현재 코드에는 API 키를 하드코딩하지 않습니다.
-- 실제 OpenAI-compatible 게이트웨이에 연결해 `RubricGenerationOutput`,
-  `GradingOutput`, `PolishOutput` 각각의 `with_structured_output()` 호출이 해당
+- 실제 OpenAI-compatible 게이트웨이에 연결해 `RubricGenerationOutput`과
+  `GradingOutput`의 `with_structured_output()` 호출이 해당
   게이트웨이에서 지원되는지 확인해야 합니다. 게이트웨이가 JSON Schema 방식을
   지원하지 않으면 `agent/model.py`에서 `method="function_calling"`으로 바꾸는
   선택을 검토합니다.

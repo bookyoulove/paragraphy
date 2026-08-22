@@ -61,7 +61,10 @@ async def recommend_problems(
     user_id: UserUUIDDep,
     agent: RecommendAgentDep,
 ):
-    return await agent.run(request)
+    scoped_request = request.model_copy(
+        update={"user_identifier": str(user_id), "session_id": None}
+    )
+    return await agent.run(scoped_request)
 
 
 @router.post("/custom", response_model=ProblemPublicWithRubrics)
@@ -112,7 +115,13 @@ def delete_problem(
         )
 
     for session in list(problem.analysis_sessions):
-        delete_session_cascade(session, analysis_result_db, chat_session_db, chat_message_db, user_answer_db)
+        delete_session_cascade(
+            session,
+            analysis_result_db,
+            chat_session_db,
+            chat_message_db,
+            user_answer_db,
+        )
         analysis_session_db.delete(session.id)
     for rubric in list(problem.rubrics):
         rubric_db.delete(rubric.id)

@@ -1,4 +1,4 @@
-"""Supervisor, 가드레일, RAG, 채점으로 구성된 논술 채점 그래프."""
+"""Supervisor, 가드레일, RAG, 문법 검사, 채점으로 구성된 논술 채점 그래프."""
 
 from __future__ import annotations
 
@@ -308,9 +308,11 @@ def build_grading_graph():
         _route_after_guardrail_input,
         {"rag_agent": "rag_agent", END: END},
     )
+    # 문법 검사와 채점은 RAG 결과를 읽을 뿐 서로의 결과에는 의존하지 않는다.
+    # 두 노드가 모두 끝난 뒤에만 최종 출력 가드레일을 실행한다.
     graph.add_edge("rag_agent", "grammar_agent")
-    graph.add_edge("grammar_agent", "grading_agent")
-    graph.add_edge("grading_agent", "guardrail_output")
+    graph.add_edge("rag_agent", "grading_agent")
+    graph.add_edge(["grammar_agent", "grading_agent"], "guardrail_output")
     graph.add_edge("guardrail_output", END)
     return graph.compile()
 
