@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import '../styles/TutorChatStatus.css';
 
@@ -13,7 +14,11 @@ const gradedGreeting = {
 };
 
 export default function TutorChatModal({ session, result: resultOverride }) {
+  const location = useLocation();
+  const result = resultOverride ?? session?.results.at(-1);
+  const isFreshResult = location.state?.fromGrading === true;
   const [isOpen, setIsOpen] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(Boolean(result));
   const [messages, setMessages] = useState([waitingMessage]);
   const [question, setQuestion] = useState('');
   // idle | connecting | open | closed | error
@@ -21,10 +26,10 @@ export default function TutorChatModal({ session, result: resultOverride }) {
   const [waiting, setWaiting] = useState(false);
   const wsRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const result = resultOverride ?? session?.results.at(-1);
 
   useEffect(() => {
     setMessages([result ? gradedGreeting : waitingMessage]);
+    setShowPrompt(Boolean(result));
   }, [session?.id, result?.id]);
 
   useEffect(() => {
@@ -182,12 +187,38 @@ export default function TutorChatModal({ session, result: resultOverride }) {
       <button
         type="button"
         className="tutor-chat-fab"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setShowPrompt(false);
+          setIsOpen(true);
+        }}
         aria-label="Tutor Chat 열기"
         title="Tutor Chat"
       >
         <span aria-hidden="true">✦</span>
       </button>
+      {showPrompt && !isOpen && (
+        <aside className="tutor-chat-prompt" role="status" aria-live="polite">
+          <button
+            type="button"
+            className="tutor-chat-prompt-close"
+            onClick={() => setShowPrompt(false)}
+            aria-label="Tutor Chat 안내 닫기"
+          >
+            ×
+          </button>
+          <strong>
+            {isFreshResult ? '채점 결과가 나왔어요!' : '이 결과를 다시 살펴보고 계시군요!'}
+          </strong>
+          <p>
+            {isFreshResult
+              ? '궁금한 점이 있으면 Tutor에게 편하게 물어보세요. 제가 같이 살펴볼게요 😊'
+              : '궁금한 점은 Tutor에게 편하게 물어보세요. 이 답안을 함께 다시 살펴볼게요 😊'}
+          </p>
+          <Link to="/weekly-reports" onClick={() => setShowPrompt(false)}>
+            주간 리포트에서 맞춤 연습 문제도 확인해보세요 →
+          </Link>
+        </aside>
+      )}
       {isOpen && (
         <div className="tutor-chat-modal" role="dialog" aria-modal="true" aria-label="Tutor Chat">
           <button
