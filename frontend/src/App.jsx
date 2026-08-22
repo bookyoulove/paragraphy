@@ -37,7 +37,7 @@ function AppLayout({ user, setUser, data, actions, error, clearError, agentTask 
     api.clearToken();
     actions.clear();
     setUser(null);
-    navigate('/');
+    navigate('/problems');
   };
 
   return (
