@@ -82,6 +82,34 @@ MAE 기준 정렬 표가 포함됩니다. Plotly의 hover·zoom·pan·범례 토
 후보 조합이 많을 때 그래프와 표를 가로로 스크롤할 수 있습니다. 산점도 점에 마우스를
 올리면 모델·temperature·replicas를 확인할 수 있습니다.
 
+### 키워드 문제 추천 RAG 평가
+
+#68의 키워드별 문제 추천 하이브리드 RAG는 `논술문서 텍스트/ragas goldenset.md`의
+7개 주제와 제시문을 골든셋으로 사용합니다. 검색 결과를 Ragas의
+`context_precision`과 `context_recall`로 평가하고, `hybrid` 검색과 키워드-only
+기준선을 함께 비교합니다. heading에 여러 키워드가 있으면 키워드별로 검색한 뒤
+결과를 중복 제거해 합칩니다. 결과에는 Ragas 점수와 함께 코퍼스의 정답 label을
+찾았는지 확인하는 `retrieved_expected_labels`도 기록합니다. 이 평가는 로컬
+개발용이며 애플리케이션 실행에는 Ragas가 필요하지 않습니다.
+
+현재 프로젝트의 Python 3.14 환경에서는 최신 Ragas가 필수 의존성
+`scikit-network`을 Windows에서 소스 빌드하려고 하므로, 다음처럼 0.2.x를
+사용합니다.
+
+```bash
+uv add --package agent --dev "ragas>=0.2.15,<0.3"
+uv run --package agent --group dev python agent/scripts/evaluate_rag.py
+```
+
+Ragas evaluator는 `.env`의 `AI_CLOUD_API_KEY`, `AI_CLOUD_BASE_URL`,
+`AI_CLOUD_MODEL`을 사용하므로 실행 시 모델 API 비용이 발생할 수 있습니다.
+결과는 gitignore된 `dataset/ragas-results.json`에 저장됩니다. 특정 전략이나
+케이스 수만 실행하려면 `--strategy hybrid|keyword|both`, `--limit N`을 사용합니다.
+Ragas 0.2.15의 평가 메트릭은 비동기로 동작하지만, Python 3.14의 event loop와
+일부 LangChain 비동기 전송 계층의 호환성 문제를 피하기 위해 평가 모델 호출은
+작업 스레드의 동기 경로로 실행합니다. 따라서 Windows와 WSL에서 동일한 평가
+스크립트를 사용할 수 있습니다.
+
 ## bareunpy와 `shared.schema.grammar`의 호환성 기록
 
 현재 bareunpy 응답은 `shared.schema.grammar.GrammarResult`로 변환하고,
