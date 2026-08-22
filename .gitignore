@@ -223,3 +223,9 @@ __marimo__/
 
 # custom database
 db/
+
+dataset/
+
+# DeepEval local state
+.deepeval/
+agent/eval_models.json
