@@ -27,6 +27,43 @@
   transform: translateX(-50%);
 }
 
+.error-banner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.error-banner-message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.error-banner-countdown {
+  flex: 0 0 auto;
+  color: #b15b5b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.error-banner-progress {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  left: 1px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 0 0 7px 7px;
+  background: #efc2c2;
+}
+
+.error-banner-progress-value {
+  height: 100%;
+  background: #922b2b;
+  transition: width 0.25s linear;
+}
+
 .error-banner button {
   flex: 0 0 auto;
   border: 0;

@@ -18,7 +18,19 @@ import SessionPage from './pages/SessionPage';
 import WeeklyReportDetailPage from './pages/WeeklyReportDetailPage';
 import WeeklyReportsPage from './pages/WeeklyReportsPage';
 
-function AppLayout({ user, setUser, data, actions, error, clearError, agentTask }) {
+const ERROR_DISMISS_SECONDS = 8;
+
+function AppLayout({
+  user,
+  setUser,
+  data,
+  actions,
+  error,
+  errorRemaining,
+  errorProgress,
+  clearError,
+  agentTask,
+}) {
   const navigate = useNavigate();
   const [isWritingNewAnswer, setIsWritingNewAnswer] = useState(false);
   const isSessionPage = useMatch('/sessions/:sessionId');
@@ -44,10 +56,25 @@ function AppLayout({ user, setUser, data, actions, error, clearError, agentTask 
     <>
       {error && (
         <div className="error-banner" role="alert">
-          <span>{error}</span>
-          <button type="button" onClick={clearError} aria-label="오류 메시지 닫기">
-            닫기 ✕
-          </button>
+          <div className="error-banner-row">
+            <span className="error-banner-message">{error}</span>
+            <span className="error-banner-countdown" aria-live="polite">
+              {errorRemaining}초 후 자동으로 사라집니다.
+            </span>
+            <button type="button" onClick={clearError} aria-label="오류 메시지 닫기">
+              닫기 ✕
+            </button>
+          </div>
+          <div
+            className="error-banner-progress"
+            role="progressbar"
+            aria-label="오류 메시지 자동 닫힘까지 남은 시간"
+            aria-valuemin="0"
+            aria-valuemax={ERROR_DISMISS_SECONDS}
+            aria-valuenow={errorRemaining}
+          >
+            <div className="error-banner-progress-value" style={{ width: `${errorProgress}%` }} />
+          </div>
         </div>
       )}
       <div className="page-wrap">
@@ -175,6 +202,9 @@ function AppLayout({ user, setUser, data, actions, error, clearError, agentTask 
 function ParagraphyApp() {
   const [user, setUser] = useState(() => api.getStoredUser());
   const [error, setError] = useState('');
+  const [errorRemaining, setErrorRemaining] = useState(0);
+  const [errorProgress, setErrorProgress] = useState(0);
+  const [errorDismissAt, setErrorDismissAt] = useState(null);
   const [agentTask, setAgentTask] = useState(null);
   const agentTaskId = useRef(0);
   const data = useAppData(user);
@@ -186,10 +216,36 @@ function ParagraphyApp() {
     window.addEventListener('paragraphy:auth-expired', handleAuthExpired);
     return () => window.removeEventListener('paragraphy:auth-expired', handleAuthExpired);
   }, [data.clear]);
-  const reportError = useCallback(
-    (err) => setError(err?.message || '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'),
-    [],
-  );
+  const clearError = useCallback(() => {
+    setError('');
+    setErrorRemaining(0);
+    setErrorProgress(0);
+    setErrorDismissAt(null);
+  }, []);
+  const reportError = useCallback((err) => {
+    setError(err?.message || '알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    setErrorRemaining(ERROR_DISMISS_SECONDS);
+    setErrorProgress(100);
+    setErrorDismissAt(Date.now() + ERROR_DISMISS_SECONDS * 1000);
+  }, []);
+  useEffect(() => {
+    if (!error || errorDismissAt === null) return undefined;
+
+    const updateRemaining = () => {
+      const millisecondsRemaining = Math.max(0, errorDismissAt - Date.now());
+      const remaining = Math.ceil(millisecondsRemaining / 1000);
+      setErrorRemaining(remaining);
+      setErrorProgress((millisecondsRemaining / (ERROR_DISMISS_SECONDS * 1000)) * 100);
+      if (remaining === 0) {
+        setError('');
+        setErrorDismissAt(null);
+      }
+    };
+
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 50);
+    return () => window.clearInterval(timer);
+  }, [error, errorDismissAt]);
   const protect = useCallback(
     (callback) =>
       async (...args) => {
@@ -251,7 +307,9 @@ function ParagraphyApp() {
             data={data}
             actions={actions}
             error={error}
-            clearError={() => setError('')}
+            errorRemaining={errorRemaining}
+            errorProgress={errorProgress}
+            clearError={clearError}
             agentTask={agentTask}
           />
         }
