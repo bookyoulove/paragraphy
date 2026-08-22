@@ -1,8 +1,49 @@
 import { useState } from 'react';
 
+const NATIONAL_KOREAN_LANGUAGE_INSTITUTE = '국립국어원';
+
+function compareKoreanText(left, right) {
+  return left.localeCompare(right, 'ko-KR');
+}
+
+function compareProblemTitle(left, right) {
+  return compareKoreanText(left.title, right.title);
+}
+
+function compareOfficialProblems(left, right) {
+  const leftIsNational = left.raw.university === NATIONAL_KOREAN_LANGUAGE_INSTITUTE;
+  const rightIsNational = right.raw.university === NATIONAL_KOREAN_LANGUAGE_INSTITUTE;
+  if (leftIsNational !== rightIsNational) return leftIsNational ? 1 : -1;
+
+  const leftSchool = left.raw.university?.trim() ?? '';
+  const rightSchool = right.raw.university?.trim() ?? '';
+  const leftHasSchool = Boolean(leftSchool);
+  const rightHasSchool = Boolean(rightSchool);
+  if (leftHasSchool !== rightHasSchool) return leftHasSchool ? -1 : 1;
+
+  const schoolComparison = compareKoreanText(leftSchool, rightSchool);
+  if (schoolComparison !== 0) return schoolComparison;
+
+  const leftYear = Number(left.raw.year);
+  const rightYear = Number(right.raw.year);
+  const leftHasYear = Number.isFinite(leftYear);
+  const rightHasYear = Number.isFinite(rightYear);
+  if (leftHasYear !== rightHasYear) return leftHasYear ? -1 : 1;
+  if (leftHasYear && leftYear !== rightYear) return leftYear - rightYear;
+  return compareProblemTitle(left, right);
+}
+
 export default function ProblemPicker({ problems, selectedId, onSelect, onRefresh, onDelete }) {
   const [deletingId, setDeletingId] = useState(null);
   const personalizedProblems = problems.filter((problem) => problem.raw.source_report_id);
+  const regularProblems = problems.filter((problem) => !problem.raw.source_report_id);
+  const userProblems = regularProblems
+    .filter((problem) => problem.raw.created_by_user)
+    .sort(compareProblemTitle);
+  const officialProblems = regularProblems
+    .filter((problem) => !problem.raw.created_by_user)
+    .sort(compareOfficialProblems);
+  const sortedRegularProblems = [...userProblems, ...officialProblems];
 
   const removeProblem = async (event, problem) => {
     event.stopPropagation();
@@ -36,7 +77,6 @@ export default function ProblemPicker({ problems, selectedId, onSelect, onRefres
       )}
     </div>
   );
-  const regularProblems = problems.filter((problem) => !problem.raw.source_report_id);
   return (
     <div className="picker-view">
       <div className="picker-view-header">
@@ -63,7 +103,7 @@ export default function ProblemPicker({ problems, selectedId, onSelect, onRefres
         </section>
       )}
       <div className="problem-list">
-        {regularProblems.map((problem) => {
+        {sortedRegularProblems.map((problem) => {
           const meta = [problem.meta.school, problem.meta.exam_type, problem.meta.year]
             .filter(Boolean)
             .join(' · ');
