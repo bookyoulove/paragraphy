@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from langchain_core.messages import HumanMessage
 from langfuse import observe
 from langgraph.graph import END, START, StateGraph
 from shared.schema.rubric import Rubric
 
+from agent.config import settings
 from agent.integrations import retrieval
 from agent.integrations.prompts import get_prompt
 from agent.integrations.spelling import (
@@ -18,7 +21,7 @@ from agent.integrations.spelling import (
 )
 from agent.model import get_structured_model
 from agent.nodes import guardrails
-from agent.retry import StructuredOutputError, invoke_with_retry
+from agent.retry import StructuredOutputError, ainvoke_with_retry
 from agent.schemas.grading import (
     CriterionScore,
     GradingOutput,
@@ -181,42 +184,100 @@ def grammar_agent_node(state: GradingState) -> dict[str, object]:
         }
 
 
+@dataclass(frozen=True)
+class _GradingRun:
+    scores: list[CriterionScore]
+    total_score: float
+    overall_comment: str
+    grammar_errors: list[GrammarError]
+
+
+def _aggregate_grading_runs(runs: Sequence[_GradingRun]) -> _GradingRun:
+    """여러 채점 결과를 항목별 중위값과 대표 설명으로 합친다."""
+    if not runs:
+        raise ValueError("채점 결과가 없습니다.")
+
+    median_scores = [
+        sorted(run.scores[index].score for run in runs)[len(runs) // 2]
+        for index in range(len(runs[0].scores))
+    ]
+    distances = [
+        sum(
+            abs(score.score - median_score)
+            for score, median_score in zip(run.scores, median_scores)
+        )
+        for run in runs
+    ]
+    representative = runs[distances.index(min(distances))]
+    scores = [
+        score.model_copy(update={"score": median_score})
+        for score, median_score in zip(representative.scores, median_scores)
+    ]
+    return _GradingRun(
+        scores=scores,
+        total_score=float(sum(median_scores)),
+        overall_comment=representative.overall_comment,
+        grammar_errors=representative.grammar_errors,
+    )
+
+
 @observe(name="grading:grading_agent", as_type="span")
-def grading_agent_node(state: GradingState) -> dict[str, object]:
+async def grading_agent_node(state: GradingState) -> dict[str, object]:
     base_prompt = _build_prompt(state)
 
     try:
-        model = get_structured_model(GradingOutput)
+        model = get_structured_model(
+            GradingOutput,
+            temperature=settings.ai_cloud_grading_temperature,
+        )
 
-        def invoke(
+        async def invoke(
             prompt: str,
-        ) -> tuple[list[CriterionScore], float, str, list[GrammarError]]:
-            result = model.invoke([HumanMessage(content=prompt)])
+        ) -> _GradingRun:
+            result = await model.ainvoke([HumanMessage(content=prompt)])
             try:
                 scores, total_score, overall_comment = _normalise_result(
                     result, state.rubric_items
                 )
             except (AttributeError, KeyError, TypeError, ValueError) as exc:
                 raise StructuredOutputError(str(exc)) from exc
-            return scores, total_score, overall_comment, result.grammar_errors
+            return _GradingRun(
+                scores=scores,
+                total_score=total_score,
+                overall_comment=overall_comment,
+                grammar_errors=result.grammar_errors,
+            )
 
-        scores, total_score, overall_comment, grammar_errors = invoke_with_retry(
-            invoke,
-            base_prompt,
-            operation_name="Grading model",
-            max_attempts=MAX_ATTEMPTS,
+        async def run_replica(replica_number: int) -> _GradingRun:
+            return await ainvoke_with_retry(
+                invoke,
+                base_prompt,
+                operation_name=f"Grading model replica {replica_number}",
+                max_attempts=MAX_ATTEMPTS,
+            )
+
+        # ainvoke + gather로 세 요청을 동시에 전송한다. 따라서 네트워크가 허용하는
+        # 범위에서는 세 번의 최대 지연시간만 기다리고, 순차 호출처럼 3배를 기다리지 않는다.
+        runs = await asyncio.gather(
+            *(
+                run_replica(number)
+                for number in range(1, settings.ai_cloud_grading_replicas + 1)
+            )
         )
+        aggregated = _aggregate_grading_runs(runs)
         return {
-            "criteria_scores": scores,
-            "total_score": total_score,
-            "overall_comment": overall_comment,
-            "grammar_errors": grammar_errors,
+            "criteria_scores": aggregated.scores,
+            "total_score": aggregated.total_score,
+            "overall_comment": aggregated.overall_comment,
+            "grammar_errors": aggregated.grammar_errors,
             "error": None,
         }
     except Exception as exc:
         logger.exception("Grading model invocation failed")
         return {
-            "error": f"채점 에이전트가 {MAX_ATTEMPTS}회 시도 후에도 실패했습니다: {exc}"
+            "error": (
+                f"채점 에이전트가 {settings.ai_cloud_grading_replicas}회 병렬 생성 후에도 실패했습니다: {exc}"
+            )
         }
 
 

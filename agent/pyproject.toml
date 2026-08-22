@@ -26,3 +26,10 @@ shared = { workspace = true }
 
 [tool.ruff.lint]
 ignore = ["BLE001"]
+
+[dependency-groups]
+dev = [
+    "deepeval>=4.1.10",
+    "plotly>=6.9.0",
+    "typer>=0.27.1",
+]

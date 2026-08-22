@@ -24,7 +24,7 @@ class WeeklySkillReportRequest(BaseModel):
 
 class SkillAssessment(BaseModel):
     key: str
-    score: int = Field(ge=1, le=5)
+    score: int = Field(ge=0, le=5)
     rationale: str = Field(min_length=1)
     improvement: str = Field(min_length=1)
 

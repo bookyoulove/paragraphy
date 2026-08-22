@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator
 
 from tenacity import (
+    AsyncRetrying,
     RetryCallState,
     Retrying,
     retry_if_exception,
@@ -170,3 +171,39 @@ def invoke_with_retry[T](
         max_attempts=max_attempts,
         max_wait=max_wait,
     )
+
+
+async def ainvoke_with_retry[T](
+    invoke: Callable[[str], Awaitable[T]],
+    base_prompt: str,
+    *,
+    operation_name: str,
+    max_attempts: int = 3,
+    max_wait: float = 8.0,
+) -> T:
+    """비동기 구조화 LLM 호출을 재시도하며 이전 오류를 다음 prompt에 전달한다."""
+    attempt_number = 0
+    last_error = ""
+
+    async def operation() -> T:
+        nonlocal attempt_number, last_error
+        attempt_number += 1
+        prompt = base_prompt
+        if attempt_number > 1:
+            prompt += (
+                f"\n\n이전 구조화 출력이 실패했다. 오류: {last_error}. 다시 시도하라."
+            )
+        try:
+            return await invoke(prompt)
+        except Exception as exc:
+            last_error = str(exc)
+            raise
+
+    retry = AsyncRetrying(
+        retry=retry_if_exception(is_retryable_error),
+        stop=stop_after_attempt(max_attempts),
+        wait=wait_random_exponential(multiplier=1, max=max_wait),
+        before_sleep=lambda state: _log_retry(operation_name, state),
+        reraise=True,
+    )
+    return await retry(operation)

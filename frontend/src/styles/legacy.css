@@ -890,15 +890,15 @@ textarea {
 
 .round-delete-btn {
     flex-shrink: 0;
-    color: #a85d5d;
-    border-color: #e5caca;
-    background: #fffafa;
+    color: #b42318;
+    border-color: #f0b8b2;
+    background: #fff5f4;
 }
 
 .round-delete-btn:hover {
-    color: #984d4d;
-    border-color: #dcb8b8;
-    background: #fff3f3;
+    color: #912018;
+    border-color: #e89a92;
+    background: #ffebe9;
 }
 
 .label-title {

@@ -39,7 +39,12 @@ export default function ProblemsPage({
         ))}
       </div>
       {tab === 'pick' ? (
-        <ProblemPicker problems={problems} onSelect={selectProblem} onRefresh={onRefresh} />
+        <ProblemPicker
+          problems={problems}
+          onSelect={selectProblem}
+          onRefresh={onRefresh}
+          onDelete={onDeleteProblem}
+        />
       ) : (
         <CustomProblemForm
           myProblems={problems.filter((problem) => problem.raw.created_by_user)}

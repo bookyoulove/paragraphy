@@ -53,35 +53,57 @@ function toProblem(problem) {
   };
 }
 
+function getHelpFields(help) {
+  return {
+    note: help?.comment ?? '',
+    examples: help?.examples ?? [],
+    ruleArticle: help?.rule_article ?? '',
+  };
+}
+
 function deriveCorrections(grammarResult) {
   const helps = grammarResult?.helps ?? {};
+  const helpEntries = Object.values(helps);
   const corrections = (grammarResult?.revised_blocks ?? []).flatMap((block) => {
     if (block.origin === block.revised) return [];
     const revisions = block.revisions?.length ? block.revisions : [{ revised: block.revised }];
     return revisions.map((revision) => {
-      const help = revision.help_id ? helps[revision.help_id] : null;
+      const help = revision.help_id
+        ? (helps[revision.help_id] ?? helpEntries.find((item) => item.id === revision.help_id))
+        : null;
       return {
         type: '첨삭',
         before: block.origin,
         after: revision.revised ?? block.revised,
-        note: help?.comment ?? '',
-        examples: help?.examples ?? [],
-        ruleArticle: help?.rule_article ?? '',
+        ...getHelpFields(help),
       };
     });
   });
 
-  if (corrections.length) return corrections;
-  return (grammarResult?.revised_sentences ?? [])
+  const referencedHelpIds = new Set(
+    (grammarResult?.revised_blocks ?? []).flatMap((block) =>
+      (block.revisions ?? []).map((revision) => revision.help_id),
+    ),
+  );
+  const sentenceHelpCandidates = helpEntries.filter((help) => !referencedHelpIds.has(help.id));
+  const sentenceHelp =
+    sentenceHelpCandidates.length === 1
+      ? sentenceHelpCandidates[0]
+      : helpEntries.length === 1
+        ? helpEntries[0]
+        : null;
+
+  const sentenceCorrections = (grammarResult?.revised_sentences ?? [])
     .filter((item) => item.origin !== item.revised)
     .map((item) => ({
       type: '첨삭',
       before: item.origin,
       after: item.revised,
-      note: '',
-      examples: [],
-      ruleArticle: '',
+      ...getHelpFields(sentenceHelp),
     }));
+
+  if (corrections.length) return corrections;
+  return sentenceCorrections;
 }
 
 function toResult(result, answerMeta) {

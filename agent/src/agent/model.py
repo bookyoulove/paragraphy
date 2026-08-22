@@ -40,9 +40,13 @@ def _langfuse_callbacks() -> list[BaseCallbackHandler]:
     return [CallbackHandler()]
 
 
-@lru_cache(maxsize=1)
-def _create_chat_model() -> BaseChatModel:
-    """환경 설정으로 고정된 LangChain ChatModel을 생성한다."""
+@lru_cache(maxsize=8)
+def _create_chat_model(temperature: float | None = None) -> BaseChatModel:
+    """환경 설정으로 LangChain ChatModel을 생성한다.
+
+    temperature는 채점처럼 호출별로 낮은 변동성이 필요한 경로에서만 전달한다.
+    다른 에이전트는 기존처럼 게이트웨이 기본값을 사용한다.
+    """
     if not settings.ai_cloud_api_key:
         raise LLMConfigurationError(
             "AI_CLOUD_API_KEY 또는 OPENAI_API_KEY가 설정되지 않았습니다. .env를 확인하세요."
@@ -52,11 +56,19 @@ def _create_chat_model() -> BaseChatModel:
             "AI_CLOUD_BASE_URL 또는 OPENAI_BASE_URL이 설정되지 않았습니다."
         )
 
+    if temperature is None:
+        return init_chat_model(
+            model=settings.ai_cloud_model,
+            model_provider="openai",
+            api_key=settings.ai_cloud_api_key,
+            base_url=settings.ai_cloud_base_url,
+        )
     return init_chat_model(
         model=settings.ai_cloud_model,
         model_provider="openai",
         api_key=settings.ai_cloud_api_key,
         base_url=settings.ai_cloud_base_url,
+        temperature=temperature,
     )
 
 
@@ -68,6 +80,8 @@ def get_chat_model() -> Runnable[LanguageModelInput, AIMessage]:
 
 def get_structured_model[T: BaseModel](
     schema: type[T],
+    *,
+    temperature: float | None = None,
 ) -> Runnable[LanguageModelInput, T]:
     """주어진 Pydantic schema로 구조화 출력을 활성화한 모델을 반환한다.
 
@@ -81,7 +95,7 @@ def get_structured_model[T: BaseModel](
     명시적으로 붙인다. 이 경로가 실제로 채점/첨삭/루브릭/가드레일 대부분이
     쓰는 경로라 빠뜨리면 LLM 호출 대부분이 트레이싱에서 누락된다.
     """
-    structured = _create_chat_model().with_structured_output(schema)
+    structured = _create_chat_model(temperature).with_structured_output(schema)
     return cast(
         Runnable[LanguageModelInput, T],
         structured.with_config(callbacks=_langfuse_callbacks()),
