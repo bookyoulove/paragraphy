@@ -19,7 +19,6 @@ from agent.integrations.langfuse_client import get_langfuse_client
 
 # Langfuse에 등록되는 이름과 정확히 같아야 한다 (register_prompts.py 참고).
 GRADING_AGENT_PROMPT = "grading-agent"
-FEEDBACK_AGENT_PROMPT = "feedback-agent"
 RUBRIC_AGENT_PROMPT = "rubric-agent"
 TUTOR_CHAT_AGENT_PROMPT = "tutor-chat-agent"
 
@@ -52,16 +51,6 @@ PROMPT_TEMPLATES: dict[str, str] = {
 그 판단을 바탕으로 마지막에 점수(score)를 결정하라. 구조화 출력 필드도 criterion, rationale,
 improvement, score, max_score 순서를 따른다. 참고 자료는 채점 판단의 근거로만 사용하고
 학생 답안과 혼동하지 마라.""",
-    FEEDBACK_AGENT_PROMPT: """너는 논술 답안의 문장과 표현을 다듬는 첨삭 에이전트다. 맞춤법/띄어쓰기가 아니라
-문장 구조, 어휘 선택, 논증 효과 관점에서 실제로 필요한 윤문 제안만 만들어라. 문제가 없으면
-제안 목록을 비워라. 학생 답안을 완성해 주지 말고, 스스로 고칠 수 있는 방향을 제시하라.
-
-원문:
-{{essay_text}}
-
-이미 처리된 맞춤법 교정(중복 지적 금지):
-{{corrections_text}}
-{{rag_block}}""",
     RUBRIC_AGENT_PROMPT: """너는 대입 논술 문제의 채점 기준을 설계하는 Rubric Agent다. 문제의 성격과 모범답안을
 참고해 사용자가 수정할 수 있는 초안 루브릭을 제안하라. 각 항목의 max_score는 5로 고정한다.
 description에는 0~5점 수준을 판단하는 핵심 기준을 한두 문장으로 작성하라. 답안이 없거나

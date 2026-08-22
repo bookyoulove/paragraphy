@@ -9,7 +9,7 @@
   LLM 호출 전에 먼저 검사한다(grading_graph와 동일한 `guardrails.check_input_safety`).
   위험하다고 판단되면 `blocked=True`를 세팅하고 즉시 END로 라우팅 — chat_responder는
   아예 실행되지 않으므로 스트리밍도, LLM 호출도 일어나지 않는다. 가드레일 호출 자체가
-  실패하면(LLM 장애 등) 통과시킨다(fail-open, grading/feedback과 동일 원칙).
+  실패하면(LLM 장애 등) 통과시킨다(fail-open, grading과 동일 원칙).
 - chat_responder: LangChain 채팅 모델의 `.stream()`으로 응답을 조각 단위로 받아
   LangGraph의 커스텀 스트림 채널(`get_stream_writer`)에 그때그때 흘려보낸다. 호출부
   (WS 라우트)는 `tutor_chat_app.stream(..., stream_mode=["custom", "values"])`로
