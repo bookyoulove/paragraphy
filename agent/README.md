@@ -25,7 +25,6 @@ structured output용 세부 모델은 이 패키지의 `schemas/`에 둡니다. 
 ```python
 await grading_app.ainvoke({"request": analysis_request})
 await rubric_app.ainvoke({"request": rubric_generation_request})
-await feedback_app.ainvoke({"request": FeedbackInput(essay_text=text)})
 ```
 
 모델 게이트웨이는 OpenAI-compatible API로 연결합니다. `.env`에 다음을 설정합니다.
@@ -33,6 +32,8 @@ await feedback_app.ainvoke({"request": FeedbackInput(essay_text=text)})
 - `AI_CLOUD_API_KEY` (또는 `OPENAI_API_KEY`)
 - `AI_CLOUD_BASE_URL` (또는 `OPENAI_BASE_URL`)
 - `AI_CLOUD_MODEL` (선택)
+- `AI_CLOUD_GRADING_TEMPERATURE` (선택, Gemini 3.1 계열 기본 `0.8`; 그 외 모델은 미전송, 비워 두면 게이트웨이 기본값 사용)
+- `AI_CLOUD_GRADING_REPLICAS` (선택, 기본 `3`; 채점 요청을 병렬 생성할 횟수)
 - `BAREUN_API_KEY` (맞춤법 검사를 사용할 때 필수)
 - `BAREUN_HOST`, `BAREUN_PORT` (선택, 기본값 `api.bareun.ai:443`)
 
@@ -43,11 +44,48 @@ await feedback_app.ainvoke({"request": FeedbackInput(essay_text=text)})
 JSON 결과를 프롬프트로 강제하거나 직접 파싱하지 않고, 각 LLM 그래프의 Pydantic 출력
 모델을 `with_structured_output()`에 전달합니다.
 
+채점 그래프는 기본적으로 동일한 입력을 세 번 비동기로 병렬 생성하고, 각 채점 항목의
+중위값을 최종 점수로 사용합니다. 설명과 근거는 중위 점수 벡터에 가장 가까운 실행의
+결과를 대표값으로 사용합니다. `AI_CLOUD_GRADING_REPLICAS=1`로 단일 생성과 비교할 수
+있으며, Gemini 3.1 계열에는 기본 `0.8`을 적용합니다. GPT 계열이나 Gemini 3.5/3.6,
+Anthropic 계열처럼 temperature를 지원하지 않는 것으로 확인된 모델은 기본적으로 해당
+파라미터를 보내지 않습니다. 별도로 지원 여부를 확인한 모델은
+`AI_CLOUD_GRADING_TEMPERATURE`에 값을 명시할 수 있습니다.
+
+## 채점 모델 벤치마크
+
+`eval_models.example.json`을 `eval_models.json`으로 복사한 뒤, gitignore된
+`eval_models.json`에 모델·base URL·temperature 후보를 기록합니다. 이후 NIKL 골든셋으로
+다음 명령을 실행합니다. 기본값은 Q4~Q9에서 균등하게 뽑은 12건이며,
+비용을 확인한 후 `--limit 0`으로 전체 데이터셋을 실행할 수 있습니다.
+
+```bash
+uv run --package agent --group dev python agent/scripts/evaluate_grading.py --limit 12
+```
+
+이 스크립트는 후보와 실행 조합마다 별도 프로세스를 띄워 모델 캐시가 섞이지 않게 하고,
+DeepEval 사용자 정의 metric으로 두 명의 사람 채점 결과와 항목별 중위값을 비교합니다.
+골든셋의 `con1`~`org2` 준거명은 원본에 codebook이 포함되어 있지 않으므로, 최종 모델
+선정에서는 총점 MAE와 구조화 출력 성공률을 우선 확인해야 합니다. API 키는 후보 JSON에
+넣지 말고 `api_key_env`로 환경변수 이름만 지정합니다.
+
+벤치마크가 끝나면 다음 명령으로 결과를 Plotly 기반 브라우저용 HTML 리포트로 변환할
+수 있습니다. 출력은 gitignore된 `dataset/` 아래에 생성되며, Plotly JavaScript를 파일에
+포함하므로 네트워크 없이도 열 수 있습니다.
+
+```bash
+uv run --package agent --group dev python agent/scripts/visualize_grading.py
+```
+
+리포트에는 항목별 MAE, 총점 MAE, 구조화 출력 성공률, 정확도-지연시간 산점도와
+MAE 기준 정렬 표가 포함됩니다. Plotly의 hover·zoom·pan·범례 토글을 사용할 수 있고,
+후보 조합이 많을 때 그래프와 표를 가로로 스크롤할 수 있습니다. 산점도 점에 마우스를
+올리면 모델·temperature·replicas를 확인할 수 있습니다.
+
 ## bareunpy와 `shared.schema.grammar`의 호환성 기록
 
-현재 feedback graph는 bareunpy 응답을 `shared.schema.grammar.GrammarResult`로
-변환하고, grading output도 같은 타입을 계약으로 사용합니다. 다만 grading graph와
-feedback graph를 하나의 실행 경로로 합치는 작업은 아직 별도 과제입니다.
+현재 bareunpy 응답은 `shared.schema.grammar.GrammarResult`로 변환하고,
+서버의 grading graph에서 실제 문법 검사 결과로 사용합니다.
 
 bareunpy protobuf 응답의 `CorrectErrorResponse` 필드는 `GrammarResult`와 거의
 같습니다.
@@ -80,10 +118,8 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
 - `agent.schemas.grading.CriterionScore.max_score`와 `total_score`도 내부 채점
   상태용입니다. `shared.schema.analysis.CriteriaScore`에는 `max_score`가 없으므로
   변환 시 제외하고, 총점은 현재 그래프 상태에만 둡니다.
-- `shared.schema.analysis.AnalysisResult.grammar_result`는 필수이므로, 문법 그래프가
-  채점 그래프에 아직 결합되지 않은 현재 단계에서는 `GrammarResult`의 빈 호환값을
-  사용합니다. feedback graph가 생성한 실제 결과를 최종 AnalysisResult에 연결하는
-  것은 별도의 후속 작업입니다.
+- `shared.schema.analysis.AnalysisResult.grammar_result`는 필수이며, grading graph의
+  문법 검사 노드가 생성한 실제 결과를 최종 AnalysisResult에 연결합니다.
 
 ## Observability & 프롬프트 관리 (Langfuse)
 
@@ -101,12 +137,11 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
   `with_structured_output()`은 앞서 바인딩한 콜백을 상속하지 않으므로 별도로 다시
   바인딩합니다). 각 그래프 노드 함수에는 `@observe()`를 붙여 개별 span으로
   기록됩니다.
-- `facade.py`의 각 어댑터(`AnalysisAgent`/`RubricAgent`/`TutorChatAgent`)는
-  `@observe()`로 trace 루트를 만들고, `propagate_attributes()`로 요청에 실려온
-  `user_identifier`/`session_id`를 trace의 `user_id`/`session_id`로 붙입니다 --
-  Langfuse 대시보드에서 사용자ㆍ세션별로 trace를 필터링할 수 있습니다. (`feedback`
-  그래프는 아직 facade/protocol에 연결되지 않아 이 트레이스 그룹핑이 없습니다 --
-  연결할 때 같은 패턴을 적용하면 됩니다.)
+- `facade.py`의 각 어댑터(`AnalysisAgent`/`RubricAgent`/`TutorChatAgent`/
+  `RecommendAgent`/`SkillReportAgent`)는 `@observe()`로 trace 루트를 만들고,
+  `propagate_attributes()`로 요청에 실려온 `user_identifier`/`session_id`를 trace의
+  `user_id`/`session_id`로 붙입니다 -- Langfuse 대시보드에서 사용자ㆍ세션별로 trace를
+  필터링할 수 있습니다.
 - `integrations/prompts.py` -- 채점/첨삭/루브릭/Tutor Chat 시스템 프롬프트를
   `langfuse.get_prompt(name)`으로 조회합니다. 로컬 `PROMPT_TEMPLATES`가 fallback이자
   최초 업로드 소스입니다.
@@ -120,8 +155,8 @@ UI나 문장 단위 diff에서 offset이 필요해질 때만 `shared.schema.gram
 
 - 실제 `BAREUN_API_KEY`로 `check_spelling()`을 한 번 호출해 protobuf → Pydantic
   변환을 통합 테스트해야 합니다. 현재 코드에는 API 키를 하드코딩하지 않습니다.
-- 실제 OpenAI-compatible 게이트웨이에 연결해 `RubricGenerationOutput`,
-  `GradingOutput`, `PolishOutput` 각각의 `with_structured_output()` 호출이 해당
+- 실제 OpenAI-compatible 게이트웨이에 연결해 `RubricGenerationOutput`과
+  `GradingOutput`의 `with_structured_output()` 호출이 해당
   게이트웨이에서 지원되는지 확인해야 합니다. 게이트웨이가 JSON Schema 방식을
   지원하지 않으면 `agent/model.py`에서 `method="function_calling"`으로 바꾸는
   선택을 검토합니다.

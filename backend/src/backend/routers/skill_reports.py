@@ -105,6 +105,8 @@ async def generate_problem_from_report(
                 f"학습 개선 방향: {weakest.improvement}"
             ),
             force_generate=True,
+            user_identifier=str(user_id),
+            session_id=str(report.id),
         )
     )
     if generated.generated is None:
@@ -124,7 +126,11 @@ async def generate_problem_from_report(
         )
     )
     rubrics = await rubric_agent.run(
-        RubricGenerationRequest(content=problem.content, model_answer=None)
+        RubricGenerationRequest(
+            content=problem.content,
+            model_answer=None,
+            user_identifier=str(user_id),
+        )
     )
     for rubric in rubrics.rubrics:
         rubric_db.create(
@@ -173,6 +179,7 @@ async def create_weekly_skill_report(
             )
             for result in results
         ],
+        user_identifier=str(user_id),
     )
     report = await agent.run(request)
     created = report_db.create(

@@ -7,10 +7,12 @@ import re
 from typing import Any
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
 from langgraph.graph import END, START, StateGraph
 from shared.schema.skill_report import WeeklySkillReportOutput
 
 from agent.model import get_structured_model
+from agent.nodes import guardrails
 from agent.schemas.skill_report import SkillReportState
 
 MAX_ATTEMPTS = 3
@@ -25,6 +27,18 @@ SKILLS: tuple[tuple[str, str], ...] = (
 )
 
 
+@observe(name="skill_report:guardrail_input", as_type="span")
+def guardrail_input_node(state: SkillReportState) -> dict[str, object]:
+    result = guardrails.check_input_safety(state.request.model_dump_json())
+    if result.flagged:
+        return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
+    return {}
+
+
+def _route_after_guardrail(state: SkillReportState) -> str:
+    return END if state.error else "skill_report_agent"
+
+
 def _build_prompt(state: SkillReportState) -> str:
     reviews = state.request.model_dump_json(indent=2)
     skill_list = "\n".join(f"- {key}: {label}" for key, label in SKILLS)
@@ -32,7 +46,7 @@ def _build_prompt(state: SkillReportState) -> str:
 아래는 DB에 저장된 최근 7일간의 채점 항목별 점수, 채점 근거(rationale), 개선 의견,
 그리고 총평이다. 제공된 데이터만 근거로 주간 학습 리포트를 작성하라.
 
-반드시 아래 5개 역량을 각각 한 번씩, 1~5점 정수로 평가하라.
+반드시 아래 5개 역량을 각각 한 번씩, 0~5점 정수로 평가하라.
 {skill_list}
 
 평가 원칙:
@@ -59,8 +73,12 @@ def _build_prompt(state: SkillReportState) -> str:
 def _normalise_report(output: WeeklySkillReportOutput) -> WeeklySkillReportOutput:
     expected_keys = [key for key, _ in SKILLS]
     output_by_key = {item.key: item for item in output.skill_scores}
-    if len(output_by_key) != len(output.skill_scores) or set(output_by_key) != set(expected_keys):
-        raise ValueError("skill_scores must contain each of the five fixed skill keys once.")
+    if len(output_by_key) != len(output.skill_scores) or set(output_by_key) != set(
+        expected_keys
+    ):
+        raise ValueError(
+            "skill_scores must contain each of the five fixed skill keys once."
+        )
     if re.search(r"\[[가-힣]\]", output.model_dump_json()):
         raise ValueError(
             "리포트에 [가], [나] 같은 문제 내부 표기가 남아 있습니다. "
@@ -71,6 +89,7 @@ def _normalise_report(output: WeeklySkillReportOutput) -> WeeklySkillReportOutpu
     )
 
 
+@observe(name="skill_report:skill_report_agent", as_type="span")
 def skill_report_agent_node(state: SkillReportState) -> dict[str, Any]:
     base_prompt = _build_prompt(state)
     last_error = ""
@@ -91,8 +110,14 @@ def skill_report_agent_node(state: SkillReportState) -> dict[str, Any]:
 
 def build_skill_report_graph():
     graph = StateGraph(SkillReportState)
+    graph.add_node("guardrail_input", guardrail_input_node)
     graph.add_node("skill_report_agent", skill_report_agent_node)
-    graph.add_edge(START, "skill_report_agent")
+    graph.add_edge(START, "guardrail_input")
+    graph.add_conditional_edges(
+        "guardrail_input",
+        _route_after_guardrail,
+        {"skill_report_agent": "skill_report_agent", END: END},
+    )
     graph.add_edge("skill_report_agent", END)
     return graph.compile()
 

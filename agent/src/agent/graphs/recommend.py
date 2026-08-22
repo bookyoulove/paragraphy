@@ -6,6 +6,8 @@ import asyncio
 import logging
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
+from langgraph.graph import END, START, StateGraph
 from shared.schema.recommend import (
     GeneratedProblem,
     RecommendedProblem,
@@ -17,8 +19,9 @@ from agent.integrations import retrieval
 from agent.integrations.retrieval import RetrievedChunk
 from agent.integrations.writing_prompts import SOURCE, ensure_indexed, load_items
 from agent.model import get_structured_model
+from agent.nodes import guardrails
 from agent.retry import invoke_with_retry
-from agent.schemas.recommend import GeneratedProblemOutput
+from agent.schemas.recommend import GeneratedProblemOutput, RecommendState
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +131,7 @@ def _generate_problem(keyword: str) -> GeneratedProblem:
     return GeneratedProblem(title=output.title, content=output.content)
 
 
-async def run_recommend(request: RecommendRequest) -> RecommendResult:
+async def _run_recommend(request: RecommendRequest) -> RecommendResult:
     matches: list[RecommendedProblem] = (
         []
         if request.force_generate
@@ -145,3 +148,49 @@ async def run_recommend(request: RecommendRequest) -> RecommendResult:
             f"추천 문제 생성 에이전트가 {MAX_ATTEMPTS}회 시도 후에도 실패했습니다: {exc}"
         ) from exc
     return RecommendResult(matches=[], generated=generated)
+
+
+@observe(name="recommend:guardrail_input", as_type="span")
+def guardrail_input_node(state: RecommendState) -> dict[str, object]:
+    result = guardrails.check_input_safety(state.request.keyword)
+    if result.flagged:
+        return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
+    return {}
+
+
+def _route_after_guardrail(state: RecommendState) -> str:
+    return END if state.error else "recommend_agent"
+
+
+@observe(name="recommend:recommend_agent", as_type="span")
+async def recommend_agent_node(state: RecommendState) -> dict[str, object]:
+    try:
+        return {"result": await _run_recommend(state.request), "error": None}
+    except Exception as exc:
+        logger.exception("Recommend agent failed")
+        return {"error": str(exc)}
+
+
+def build_recommend_graph():
+    graph = StateGraph(RecommendState)
+    graph.add_node("guardrail_input", guardrail_input_node)
+    graph.add_node("recommend_agent", recommend_agent_node)
+    graph.add_edge(START, "guardrail_input")
+    graph.add_conditional_edges(
+        "guardrail_input",
+        _route_after_guardrail,
+        {"recommend_agent": "recommend_agent", END: END},
+    )
+    graph.add_edge("recommend_agent", END)
+    return graph.compile()
+
+
+recommend_app = build_recommend_graph()
+
+
+async def run_recommend(request: RecommendRequest) -> RecommendResult:
+    result_raw = await recommend_app.ainvoke(RecommendState(request=request))
+    state = RecommendState.model_validate(result_raw)
+    if state.error or state.result is None:
+        raise ValueError(state.error or "추천 문제 생성 결과가 비어 있습니다.")
+    return state.result
