@@ -32,7 +32,7 @@ def _build_prompt(state: SkillReportState) -> str:
 아래는 DB에 저장된 최근 7일간의 채점 항목별 점수, 채점 근거(rationale), 개선 의견,
 그리고 총평이다. 제공된 데이터만 근거로 주간 학습 리포트를 작성하라.
 
-반드시 아래 5개 역량을 각각 한 번씩, 1~5점 정수로 평가하라.
+반드시 아래 5개 역량을 각각 한 번씩, 0~5점 정수로 평가하라.
 {skill_list}
 
 평가 원칙:
@@ -59,8 +59,12 @@ def _build_prompt(state: SkillReportState) -> str:
 def _normalise_report(output: WeeklySkillReportOutput) -> WeeklySkillReportOutput:
     expected_keys = [key for key, _ in SKILLS]
     output_by_key = {item.key: item for item in output.skill_scores}
-    if len(output_by_key) != len(output.skill_scores) or set(output_by_key) != set(expected_keys):
-        raise ValueError("skill_scores must contain each of the five fixed skill keys once.")
+    if len(output_by_key) != len(output.skill_scores) or set(output_by_key) != set(
+        expected_keys
+    ):
+        raise ValueError(
+            "skill_scores must contain each of the five fixed skill keys once."
+        )
     if re.search(r"\[[가-힣]\]", output.model_dump_json()):
         raise ValueError(
             "리포트에 [가], [나] 같은 문제 내부 표기가 남아 있습니다. "
