@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { formatWrittenAt } from '../utils/formatters';
 
@@ -7,9 +7,13 @@ export default function AnswerListPage({ user, session, onLoad, onDelete }) {
   const navigate = useNavigate();
   const isCurrentSession = String(session?.id) === sessionId;
   const [deletingId, setDeletingId] = useState(null);
+  const loadAttemptRef = useRef(null);
+  const loadKey = user ? `${user.identifier}:${sessionId}` : null;
   useEffect(() => {
-    if (user && !isCurrentSession) onLoad(sessionId);
-  }, [user, sessionId, isCurrentSession, onLoad]);
+    if (!user || isCurrentSession || loadAttemptRef.current === loadKey) return;
+    loadAttemptRef.current = loadKey;
+    onLoad(sessionId).catch(() => {});
+  }, [user, sessionId, isCurrentSession, onLoad, loadKey]);
   if (!isCurrentSession) return <div className="panel-empty">세션을 불러오는 중입니다.</div>;
 
   const removeAnswer = async (answerId) => {
