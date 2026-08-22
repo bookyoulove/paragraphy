@@ -7,10 +7,12 @@ import re
 from typing import Any
 
 from langchain_core.messages import HumanMessage
+from langfuse import observe
 from langgraph.graph import END, START, StateGraph
 from shared.schema.skill_report import WeeklySkillReportOutput
 
 from agent.model import get_structured_model
+from agent.nodes import guardrails
 from agent.schemas.skill_report import SkillReportState
 
 MAX_ATTEMPTS = 3
@@ -23,6 +25,18 @@ SKILLS: tuple[tuple[str, str], ...] = (
     ("counterargument", "다른 입장에 대한 고려"),
     ("passage_summary", "지문 요약"),
 )
+
+
+@observe(name="skill_report:guardrail_input", as_type="span")
+def guardrail_input_node(state: SkillReportState) -> dict[str, object]:
+    result = guardrails.check_input_safety(state.request.model_dump_json())
+    if result.flagged:
+        return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
+    return {}
+
+
+def _route_after_guardrail(state: SkillReportState) -> str:
+    return END if state.error else "skill_report_agent"
 
 
 def _build_prompt(state: SkillReportState) -> str:
@@ -75,6 +89,7 @@ def _normalise_report(output: WeeklySkillReportOutput) -> WeeklySkillReportOutpu
     )
 
 
+@observe(name="skill_report:skill_report_agent", as_type="span")
 def skill_report_agent_node(state: SkillReportState) -> dict[str, Any]:
     base_prompt = _build_prompt(state)
     last_error = ""
@@ -95,8 +110,14 @@ def skill_report_agent_node(state: SkillReportState) -> dict[str, Any]:
 
 def build_skill_report_graph():
     graph = StateGraph(SkillReportState)
+    graph.add_node("guardrail_input", guardrail_input_node)
     graph.add_node("skill_report_agent", skill_report_agent_node)
-    graph.add_edge(START, "skill_report_agent")
+    graph.add_edge(START, "guardrail_input")
+    graph.add_conditional_edges(
+        "guardrail_input",
+        _route_after_guardrail,
+        {"skill_report_agent": "skill_report_agent", END: END},
+    )
     graph.add_edge("skill_report_agent", END)
     return graph.compile()
 

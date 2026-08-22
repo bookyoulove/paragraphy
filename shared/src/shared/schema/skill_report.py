@@ -20,6 +20,8 @@ class WeeklySkillReportRequest(BaseModel):
     period_start: datetime
     period_end: datetime
     reviews: list[GradedAnswerReview] = Field(min_length=1)
+    # 서버가 인증된 사용자 식별자를 주입하며, 관측 메타데이터에만 사용한다.
+    user_identifier: str | None = None
 
 
 class SkillAssessment(BaseModel):

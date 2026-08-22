@@ -157,16 +157,29 @@ class RecommendAgent(RecommendAgentProtocol):
     """키워드 기반 문제 추천(하이브리드 RAG)의 백엔드 어댑터."""
 
     @override
+    @observe(name="recommend-request")
     async def run(self, input: RecommendRequest) -> RecommendResult:
-        return await run_recommend(input)
+        with propagate_attributes(
+            user_id=input.user_identifier,
+            session_id=input.session_id,
+            trace_name="recommend-request",
+            metadata={"agent": "recommend"},
+        ):
+            return await run_recommend(input)
 
 
 class SkillReportAgent(SkillReportAgentProtocol):
     """Persisted grading evidence를 주간 역량 리포트로 변환하는 어댑터."""
 
     @override
+    @observe(name="skill-report-request")
     async def run(self, input: WeeklySkillReportRequest) -> WeeklySkillReportOutput:
-        result_raw = await skill_report_app.ainvoke(SkillReportState(request=input))
+        with propagate_attributes(
+            user_id=input.user_identifier,
+            trace_name="skill-report-request",
+            metadata={"agent": "skill_report"},
+        ):
+            result_raw = await skill_report_app.ainvoke(SkillReportState(request=input))
         result = SkillReportState.model_validate(result_raw)
         if result.error or result.report is None:
             raise ValueError(result.error or "주간 리포트 결과가 비어 있습니다.")

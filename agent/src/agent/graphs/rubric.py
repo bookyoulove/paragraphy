@@ -10,6 +10,7 @@ from langgraph.graph import END, START, StateGraph
 
 from agent.integrations.prompts import get_prompt
 from agent.model import get_structured_model
+from agent.nodes import guardrails
 from agent.retry import invoke_with_retry
 from agent.schemas.rubric import (
     RubricGenerationOutput,
@@ -20,6 +21,23 @@ from agent.schemas.rubric import (
 MAX_ATTEMPTS = 3
 
 logger = logging.getLogger(__name__)
+
+
+@observe(name="rubric:guardrail_input", as_type="span")
+def guardrail_input_node(state: RubricState) -> dict[str, object]:
+    text = "\n\n".join(
+        value
+        for value in (state.request.content, state.request.model_answer or "")
+        if value
+    )
+    result = guardrails.check_input_safety(text)
+    if result.flagged:
+        return {"error": f"입력 검증에서 차단됨 ({result.category}): {result.reason}"}
+    return {}
+
+
+def _route_after_guardrail(state: RubricState) -> str:
+    return END if state.error else "rubric_agent"
 
 
 def _build_prompt(state: RubricState) -> str:
@@ -59,8 +77,14 @@ def rubric_agent_node(state: RubricState) -> dict[str, object]:
 
 def build_rubric_graph():
     graph = StateGraph(RubricState)
+    graph.add_node("guardrail_input", guardrail_input_node)
     graph.add_node("rubric_agent", rubric_agent_node)
-    graph.add_edge(START, "rubric_agent")
+    graph.add_edge(START, "guardrail_input")
+    graph.add_conditional_edges(
+        "guardrail_input",
+        _route_after_guardrail,
+        {"rubric_agent": "rubric_agent", END: END},
+    )
     graph.add_edge("rubric_agent", END)
     return graph.compile()
 
