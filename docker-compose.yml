@@ -35,5 +35,7 @@ services:
     env_file:
       - path: ./frontend/.env
         required: false
+    environment:
+      - VITE_WS_PROXY_TARGET=http://host.containers.internal:8000
     depends_on:
       - backend

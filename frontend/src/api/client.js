@@ -2,6 +2,15 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000
 const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 const AUTH_STORAGE_KEY = 'paragraphy.auth';
 
+function getWebSocketBaseUrl() {
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  }
+
+  return WS_BASE_URL;
+}
+
 function getAuthStorage() {
   return typeof window === 'undefined' ? null : window.sessionStorage;
 }
@@ -341,7 +350,9 @@ export const api = {
     });
   },
   async generateProblemFromReport(reportId) {
-    return toProblem(await request(`/skill-reports/${reportId}/generated-problem`, { method: 'POST' }));
+    return toProblem(
+      await request(`/skill-reports/${reportId}/generated-problem`, { method: 'POST' }),
+    );
   },
   async getChat(resultId) {
     try {
@@ -369,6 +380,6 @@ export const api = {
   // 커스텀 헤더를 못 실으므로 토큰을 쿼리 파라미터로 붙인다(서버가 동일하게 파싱).
   chatSocketUrl(resultId) {
     const token = accessToken ?? '';
-    return `${WS_BASE_URL}/results/${resultId}/chat/ws?token=${encodeURIComponent(token)}`;
+    return `${getWebSocketBaseUrl()}/results/${resultId}/chat/ws?token=${encodeURIComponent(token)}`;
   },
 };
