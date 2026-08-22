@@ -163,7 +163,10 @@ class RecommendAgent(RecommendAgentProtocol):
             user_id=input.user_identifier,
             session_id=input.session_id,
             trace_name="recommend-request",
-            metadata={"agent": "recommend"},
+            metadata={
+                "agent": "recommend",
+                "force_generate": input.force_generate,
+            },
         ):
             return await run_recommend(input)
 
@@ -177,7 +180,14 @@ class SkillReportAgent(SkillReportAgentProtocol):
         with propagate_attributes(
             user_id=input.user_identifier,
             trace_name="skill-report-request",
-            metadata={"agent": "skill_report"},
+            metadata={
+                "agent": "skill_report",
+                "period_start": input.period_start.isoformat(),
+                "period_end": input.period_end.isoformat(),
+                "review_answer_ids": [
+                    str(review.answer_id) for review in input.reviews
+                ],
+            },
         ):
             result_raw = await skill_report_app.ainvoke(SkillReportState(request=input))
         result = SkillReportState.model_validate(result_raw)
