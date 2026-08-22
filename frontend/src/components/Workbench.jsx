@@ -4,9 +4,10 @@ import AnnotatedAnswer from './AnnotatedAnswer';
 import ResultPanel from './ResultPanel';
 import RubricModal from './RubricModal';
 
-const initialMode = (session, readOnly, startNew) => {
+const initialMode = (session, readOnly, forceEdit, startNew) => {
   if (readOnly) return 'view';
   if (startNew) return 'new';
+  if (forceEdit) return 'edit';
   return session?.answerSubmitted ? 'view' : 'edit';
 };
 
@@ -14,6 +15,7 @@ export default function Workbench({
   problem,
   session,
   onSave,
+  onSaveComplete,
   onGrade,
   onNewAnswerStateChange,
   answerOverride = null,
@@ -21,17 +23,18 @@ export default function Workbench({
   onNewAnswer,
   onEditAnswer,
   readOnly = false,
+  forceEdit = false,
   startNew = false,
 }) {
   const navigate = useNavigate();
   const answerValue = answerOverride?.userAnswer ?? session?.answer ?? '';
   const answerName = answerOverride?.name ?? session?.answerName ?? '';
   const [answer, setAnswer] = useState(startNew ? '' : answerValue);
-  const [name, setName] = useState(startNew ? '' : answerName);
+  const [name, setName] = useState(startNew || forceEdit ? '' : answerName);
   const [showRubric, setShowRubric] = useState(false);
   const [saved, setSaved] = useState('');
   const [grading, setGrading] = useState(false);
-  const [mode, setMode] = useState(() => initialMode(session, readOnly, startNew));
+  const [mode, setMode] = useState(() => initialMode(session, readOnly, forceEdit, startNew));
   const [selectedCorrectionIndex, setSelectedCorrectionIndex] = useState(null);
   const [proofFocusId, setProofFocusId] = useState(0);
   const startedNewRoundRef = useRef(false);
@@ -51,11 +54,11 @@ export default function Workbench({
     }
     if (!startNew) startedNewRoundRef.current = false;
     setAnswer(startNew ? '' : answerValue);
-    setName(startNew ? '' : answerName);
+    setName(startNew || forceEdit ? '' : answerName);
     setSaved('');
-    setMode(initialMode(session, readOnly, startNew));
+    setMode(initialMode(session, readOnly, forceEdit, startNew));
     setSelectedCorrectionIndex(null);
-  }, [session?.id, answerOverride?.id, readOnly, startNew]);
+  }, [session?.id, answerOverride?.id, readOnly, forceEdit, startNew]);
   useEffect(() => {
     onNewAnswerStateChange?.(mode === 'new');
   }, [mode, onNewAnswerStateChange]);
@@ -87,7 +90,8 @@ export default function Workbench({
   };
   const save = async () => {
     try {
-      await onSave(answer, { createNew: pendingNewRound, name });
+      const savedSession = await onSave(answer, { createNew: pendingNewRound, name });
+      onSaveComplete?.(savedSession);
       setMode('edit');
       setSaved('임시 저장되었습니다.');
       setTimeout(() => setSaved(''), 2200);
@@ -125,6 +129,13 @@ export default function Workbench({
           </button>
         </div>
       )}
+      {forceEdit && answerOverride && (
+        <div className="new-round-notice">
+          <span>
+            현재 답안을 수정합니다. 저장하거나 채점하면 수정 내용이 다음 회차로 추가됩니다.
+          </span>
+        </div>
+      )}
       <div className="answer-header">
         <div className="answer-title">{editable ? '답안 작성' : '답안 보기'}</div>
         {editable && (
@@ -133,7 +144,9 @@ export default function Workbench({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={50}
-            placeholder={pendingNewRound ? '답안 이름 (비워두면 자동으로 N회차)' : '답안 이름'}
+            placeholder={
+              pendingNewRound || forceEdit ? '답안 이름 (비워두면 자동으로 N회차)' : '답안 이름'
+            }
             aria-label="답안 이름"
           />
         )}

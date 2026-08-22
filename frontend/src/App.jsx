@@ -162,6 +162,8 @@ function AppLayout({
                     user={user}
                     session={data.session}
                     onLoad={actions.loadSession}
+                    onSave={actions.saveAnswer}
+                    onGrade={actions.grade}
                   />
                 }
               />
